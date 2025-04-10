@@ -1,0 +1,321 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'eBPF-MCP Deployment on Ubuntu 22.04 LTS'
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair.
+  
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t3.mirco
+    AllowedValues:
+      - t3.mirco
+      - t3.medium
+      - t3.large
+      - m5.large
+      - c5.large
+    ConstraintDescription: Must be a valid EC2 instance type.
+  
+  AccessCIDR:
+    Description: The IP address range that can be used to connect to the EC2 instance
+    Type: String
+    Default: 0.0.0.0/0
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x.
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-0c7217cdde317cfec  # Ubuntu 22.04 LTS
+    us-east-2:
+      AMI: ami-0c20d88b0021158c6  # Ubuntu 22.04 LTS
+    us-west-1:
+      AMI: ami-0487b1fe60c1fd1a2  # Ubuntu 22.04 LTS
+    us-west-2:
+      AMI: ami-0efcece6bed30fd98  # Ubuntu 22.04 LTS
+    eu-west-1:
+      AMI: ami-0d2a4a5d69e93cb66  # Ubuntu 22.04 LTS
+    eu-central-1:
+      AMI: ami-0faab6bdbac9486fb  # Ubuntu 22.04 LTS
+    ap-northeast-1:
+      AMI: ami-0d52744d6551d851e  # Ubuntu 22.04 LTS
+    ap-southeast-1:
+      AMI: ami-078c1149d8ad719a7  # Ubuntu 22.04 LTS
+    ap-southeast-2:
+      AMI: ami-021e2735b31d23595  # Ubuntu 22.04 LTS
+
+Resources:
+  eBPFMCPSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH and HTTP access
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AccessCIDR
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: !Ref AccessCIDR
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref AccessCIDR
+  
+  eBPFMCPInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      SecurityGroups:
+        - !Ref eBPFMCPSecurityGroup
+      KeyName: !Ref KeyName
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMI]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 20
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash -xe
+          # Update system
+          apt-get update
+          apt-get upgrade -y
+
+          # Install dependencies
+          apt-get install -y build-essential linux-headers-$(uname -r) \
+            python3-dev python3-pip git clang llvm libelf-dev \
+            python3-bcc bpfcc-tools libbpfcc libbpfcc-dev nginx
+
+          # Install Python dependencies
+          pip3 install fastapi uvicorn pydantic click pyyaml requests
+
+          # Clone eBPF-MCP repository
+          git clone https://github.com/ebpf-mcp/ebpf-mcp.git /opt/ebpf-mcp
+          cd /opt/ebpf-mcp
+
+          # Create necessary directories
+          mkdir -p /usr/local/share/ebpf-mcp/bpf_programs
+          mkdir -p /var/lib/ebpf-mcp/mcp/.well-known/mcp/{maps,traces,tools}
+          
+          # Copy BPF programs
+          cp bpf_programs/* /usr/local/share/ebpf-mcp/bpf_programs/
+
+          # Install package
+          pip3 install -e .
+
+          # Create config file
+          mkdir -p /etc/ebpf-mcp
+          cat > /etc/ebpf-mcp/config.yaml << 'EOF'
+          server:
+            host: 0.0.0.0
+            port: 8080
+            debug: false
+          ebpf:
+            programs_dir: /usr/local/share/ebpf-mcp/bpf_programs
+          mcp:
+            context_dir: /var/lib/ebpf-mcp/mcp
+          logging:
+            level: info
+            file: /var/log/ebpf-mcp.log
+          EOF
+
+          # Create systemd service
+          cat > /etc/systemd/system/ebpf-mcp.service << 'EOF'
+          [Unit]
+          Description=eBPF Model Context Protocol Service
+          After=network.target
+
+          [Service]
+          ExecStart=/usr/local/bin/ebpf-mcp serve
+          Restart=on-failure
+          User=root
+          Group=root
+          Environment=PYTHONUNBUFFERED=1
+
+          [Install]
+          WantedBy=multi-user.target
+          EOF
+
+          # Set up Nginx as a reverse proxy
+          cat > /etc/nginx/sites-available/ebpf-mcp << 'EOF'
+          server {
+              listen 80;
+              server_name _;
+
+              location / {
+                  proxy_pass http://localhost:8080;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host $host;
+                  proxy_cache_bypass $http_upgrade;
+              }
+          }
+          EOF
+          
+          ln -s /etc/nginx/sites-available/ebpf-mcp /etc/nginx/sites-enabled/
+          rm /etc/nginx/sites-enabled/default
+          
+          # Create a welcome page
+          mkdir -p /var/www/html
+          cat > /var/www/html/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>eBPF-MCP Deployment</title>
+              <style>
+                  body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+                  h1 { color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+                  .info { background: #f8f8f8; padding: 15px; border-radius: 5px; border-left: 4px solid #5cb85c; }
+                  code { background: #f1f1f1; padding: 2px 5px; border-radius: 3px; font-family: monospace; }
+                  pre { background: #f1f1f1; padding: 10px; border-radius: 5px; overflow-x: auto; }
+              </style>
+          </head>
+          <body>
+              <h1>eBPF-MCP Deployment Successful!</h1>
+              <div class="info">
+                  <p><strong>Server Status:</strong> <span id="status">Checking...</span></p>
+                  <p><strong>Instance Public IP:</strong> <span id="publicIp">Fetching...</span></p>
+              </div>
+              
+              <h2>MCP Endpoints</h2>
+              <ul>
+                  <li>MCP Metadata: <a href="/.well-known/mcp/metadata.json" target="_blank">/.well-known/mcp/metadata.json</a></li>
+                  <li>Available Tools: <a href="/.well-known/mcp/tools.json" target="_blank">/.well-known/mcp/tools.json</a></li>
+                  <li>System Summary: <a href="/.well-known/mcp/llms.txt" target="_blank">/.well-known/mcp/llms.txt</a></li>
+              </ul>
+              
+              <h2>Using with LLMs</h2>
+              <p>To use this eBPF-MCP server with LLMs, provide them with the MCP endpoint:</p>
+              <pre>http://<span id="publicIp2">your-instance-ip</span>/.well-known/mcp/</pre>
+              
+              <h2>Test the Server</h2>
+              <p>You can run tools via the API:</p>
+              <pre>curl -X POST http://<span id="publicIp3">your-instance-ip</span>/api/tools/syscall_trace -H "Content-Type: application/json" -d '{"pid":1}'</pre>
+              
+              <script>
+                  async function checkStatus() {
+                      try {
+                          const response = await fetch('/health');
+                          if (response.ok) {
+                              const data = await response.json();
+                              document.getElementById('status').innerText = 'Running ✅ (Uptime: ' + data.uptime + ')';
+                          } else {
+                              document.getElementById('status').innerText = 'Error ❌';
+                          }
+                      } catch (e) {
+                          document.getElementById('status').innerText = 'Not available ❌';
+                      }
+                  }
+                  
+                  async function getPublicIp() {
+                      try {
+                          const response = await fetch('https://checkip.amazonaws.com/');
+                          const ip = await response.text();
+                          const trimmedIp = ip.trim();
+                          document.getElementById('publicIp').innerText = trimmedIp;
+                          document.getElementById('publicIp2').innerText = trimmedIp;
+                          document.getElementById('publicIp3').innerText = trimmedIp;
+                      } catch (e) {
+                          console.error(e);
+                      }
+                  }
+                  
+                  checkStatus();
+                  getPublicIp();
+                  setInterval(checkStatus, 10000);
+              </script>
+          </body>
+          </html>
+          EOF
+
+          # Enable and start services
+          systemctl enable nginx
+          systemctl restart nginx
+          systemctl enable ebpf-mcp
+          systemctl start ebpf-mcp
+
+          # Add a sample BPF program if it doesn't exist
+          if [ ! -f /usr/local/share/ebpf-mcp/bpf_programs/syscall_trace.c ]; then
+            cat > /usr/local/share/ebpf-mcp/bpf_programs/syscall_trace.c << 'EOF'
+          #include <uapi/linux/ptrace.h>
+          #include <linux/sched.h>
+          #include <linux/fs.h>
+
+          struct syscall_event_t {
+              u32 pid;
+              u32 tgid;
+              u64 timestamp;
+              char comm[TASK_COMM_LEN];
+              u64 syscall_nr;
+          };
+
+          BPF_PERF_OUTPUT(events);
+          BPF_HASH(syscall_count, u64, u64);
+
+          int trace_syscall_entry(struct pt_regs *ctx) {
+              u64 id = bpf_get_current_pid_tgid();
+              u32 tgid = id >> 32;
+              u32 pid = id;
+              
+              // Filter by PID if argument is provided
+              FILTER_PID
+              
+              u64 timestamp = bpf_ktime_get_ns();
+              
+              struct syscall_event_t event = {};
+              event.pid = pid;
+              event.tgid = tgid;
+              event.timestamp = timestamp;
+              event.syscall_nr = PT_REGS_SYSCALL_NR(ctx);
+              
+              bpf_get_current_comm(&event.comm, sizeof(event.comm));
+              
+              events.perf_submit(ctx, &event, sizeof(event));
+              
+              // Increment counter for this syscall
+              u64 *count = syscall_count.lookup(&event.syscall_nr);
+              if (count) {
+                  (*count)++;
+              } else {
+                  u64 new_count = 1;
+                  syscall_count.update(&event.syscall_nr, &new_count);
+              }
+              
+              return 0;
+          }
+
+          char LICENSE[] SEC("license") = "GPL";
+          EOF
+          fi
+
+          # Display completion message
+          echo "eBPF-MCP deployment complete! Access via http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)/"
+      Tags:
+        - Key: Name
+          Value: eBPF-MCP-Server
+
+Outputs:
+  InstanceId:
+    Description: The Instance ID
+    Value: !Ref eBPFMCPInstance
+  
+  PublicIP:
+    Description: Public IP address of the eBPF-MCP server
+    Value: !GetAtt eBPFMCPInstance.PublicIp
+  
+  WebsiteURL:
+    Description: URL for the eBPF-MCP web interface
+    Value: !Join ['', ['http://', !GetAtt eBPFMCPInstance.PublicIp, '/']]
+  
+  MCPURL:
+    Description: URL for the MCP endpoint
+    Value: !Join ['', ['http://', !GetAtt eBPFMCPInstance.PublicIp, '/.well-known/mcp/']]
+  
+  SSHCommand:
+    Description: SSH command to connect to the instance
+    Value: !Join ['', ['ssh ubuntu@', !GetAtt eBPFMCPInstance.PublicIp]]
