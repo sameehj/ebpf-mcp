@@ -1,6 +1,6 @@
 # eBPF-MCP: One-Click AWS Deployment
 
-[![Deploy to AWS](https://img.shields.io/badge/Deploy%20to-AWS-%23FF9900?style=for-the-badge&logo=amazon-aws)](https://console.aws.amazon.com/cloudformation/home#/stacks/create/review?templateURL=https://ebpf-mcp-templates.s3.amazonaws.com/ebpf-mcp-stack.yaml)
+[![Deploy to AWS](https://img.shields.io/badge/Deploy%20to-AWS-%23FF9900?style=for-the-badge&logo=amazon-aws)](https://console.aws.amazon.com/cloudformation/home#/stacks/quickcreate?templateURL=https://raw.githubusercontent.com/sameehj/ebpf-mcp/main/cloudformation/ebpf-mcp-stack.yaml)
 
 The eBPF Model Context Protocol (eBPF-MCP) bridges the gap between Linux kernel observability and LLMs (Large Language Models). This project provides a one-click deployment solution for AWS, allowing you to quickly set up an eBPF-MCP server.
 
