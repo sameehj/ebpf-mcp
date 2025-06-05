@@ -1,4 +1,4 @@
-# 🐝 ebpf-mcp: MCP-Compatible AI Server for Linux eBPF Control
+## 🐝 ebpf-mcp: MCP-Compatible AI Server for Linux eBPF Control
 
 **License:** MIT  **Status:** Pre-release  **AI-Ready:** Yes
 
@@ -30,8 +30,8 @@
 
 ## 📌 Current Status
 
-✅ MVP under development as an **MCP-compatible Go server**  
-✅ `tools/list` and `tools/call` implemented  
+✅ MVP under development as an **MCP-compatible Go server**
+✅ `tools/list` and `tools/call` implemented
 🚧 More tools being ported from prototype CLI
 
 ---
@@ -68,7 +68,7 @@ The **Model Context Protocol (MCP)** is a standardized way for AI assistants to 
 * Defines `tools/list`, `tools/call`, `resources/*` methods
 * Enables AI agents to discover, invoke, and reason with tools securely and predictably
 
-For full spec, see: [https://github.com/modelcontextprotocol/spec](https://github.com/modelcontextprotocol/spec)
+For full spec, see: [modelcontextprotocol/spec](https://github.com/modelcontextprotocol/spec)
 
 ---
 
@@ -112,37 +112,37 @@ Use `ebpf-mcp` to:
 
 ### 🤖 AI-Driven Incident Response
 
-Ask: *"Why is CPU spiking on production servers?"*  
+Ask: *"Why is CPU spiking on production servers?"*
 → AI deploys CPU profilers, traces network + system usage, reports Redis overload + suggests tuning
 
 ### 🎮 Interactive Kernel Debugging
 
-Ask: *"Why is my kernel module crashing?"*  
+Ask: *"Why is my kernel module crashing?"*
 → AI deploys kprobes, catches crash location, analyzes cause, and suggests fix
 
 ### ⚡ Zero-Downtime Performance Optimization
 
-Ask: *"Why is the DB 50% slower today?"*  
+Ask: *"Why is the DB 50% slower today?"*
 → AI traces syscalls + I/O, detects cache thrashing, recommends sysctl tweaks
 
 ### 🛡️ Real-time Threat Hunting
 
-Ask: *"Scan for privilege escalation attempts"*  
+Ask: *"Scan for privilege escalation attempts"*
 → AI monitors setuid/setgid, traces ancestry, flags abuse patterns
 
 ### 🔍 Security Analysis
 
-Ask: *"Is there any suspicious network activity on this server?"*  
+Ask: *"Is there any suspicious network activity on this server?"*
 → AI deploys eBPF network probes, analyzes patterns, identifies anomalies
 
 ### 🚨 Performance Debugging
 
-Ask: *"Why is my application making so many syscalls?"*  
+Ask: *"Why is my application making so many syscalls?"*
 → AI traces your app, correlates syscall patterns, suggests optimizations
 
 ### 🧰 Container Monitoring
 
-Ask: *"Which containers are using the most network bandwidth?"*  
+Ask: *"Which containers are using the most network bandwidth?"*
 → AI monitors traffic per namespace, provides ranked analysis
 
 ---
@@ -170,7 +170,7 @@ This project fully adheres to the [Model Context Protocol](https://github.com/mo
 
 ## 🧱 Architecture
 
-```
+```text
 [ AI Assistant / Claude / LLaMA ]
             │
             ▼
@@ -218,19 +218,6 @@ Then POST valid JSON-RPC 2.0 requests to `localhost:8080/rpc`
 
 ## 📡 Example JSON-RPC Calls
 
-### ❌ Error Response Example
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 2,
-  "error": {
-    "code": -32000,
-    "message": "Failed to attach program: interface eth0 not found"
-  }
-}
-```
-
 ### 🧠 List Tools
 
 ```json
@@ -259,17 +246,6 @@ Then POST valid JSON-RPC 2.0 requests to `localhost:8080/rpc`
             "interface": { "type": "string" }
           },
           "required": ["program", "interface"]
-        }
-      },
-      {
-        "name": "ebpf.map_dump",
-        "description": "Dump contents of a named BPF map",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "map_name": { "type": "string" }
-          },
-          "required": ["map_name"]
         }
       }
     ]
@@ -313,7 +289,7 @@ Then POST valid JSON-RPC 2.0 requests to `localhost:8080/rpc`
 
 ---
 
-## 🚀 Roadmap
+## 🛣️ Roadmap
 
 * ✅ MCP JSON-RPC server
 * ✅ eBPF program loader (general purpose)
