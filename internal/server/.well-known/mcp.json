@@ -1,0 +1,8 @@
+{
+    "schema_version": "v1",
+    "entrypoint_url": "http://localhost:8080/rpc",
+    "display_name": "eBPF MCP Server",
+    "description": "Exposes Linux kernel tools via MCP protocol",
+    "tool_filter": "all"
+  }
+  

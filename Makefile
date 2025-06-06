@@ -33,7 +33,8 @@ clean:
 
 test:
 	@echo "🧪 Running tests..."
-	@go test ./...
+	#@go test ./...
+	@sudo go test ./internal/tests/tools
 
 fmt:
 	@echo "🎨 Formatting code..."

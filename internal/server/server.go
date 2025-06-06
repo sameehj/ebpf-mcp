@@ -1,14 +1,25 @@
 package server
 
 import (
-    "net/http"
-    "github.com/gorilla/mux"
-    "github.com/sameehj/ebpf-mcp/internal/core"
+	"embed"
+	"net/http"
+
+	"github.com/gorilla/mux"
+	"github.com/sameehj/ebpf-mcp/internal/core"
 )
 
-func Start() error {
-    router := mux.NewRouter()
-    router.HandleFunc("/rpc", core.HandleMCP).Methods("POST")
+//go:embed .well-known/*
+var embeddedFiles embed.FS
 
-    return http.ListenAndServe(":8080", router)
+func Start() error {
+	router := mux.NewRouter()
+
+	// Serve /.well-known/mcp.json from embedded filesystem
+	router.PathPrefix("/.well-known/").Handler(
+		http.FileServer(http.FS(embeddedFiles)),
+	)
+
+	router.HandleFunc("/rpc", core.HandleMCP).Methods("POST")
+
+	return http.ListenAndServe(":8080", router)
 }
