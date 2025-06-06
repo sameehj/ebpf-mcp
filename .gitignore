@@ -1,0 +1,50 @@
+# Go build artifacts
+/bin/
+/bin/*
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Output folders
+build/
+dist/
+
+# Go module cache (shouldn't be committed)
+go.sum
+vendor/
+
+# Editor/IDE files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# eBPF object files
+*.o
+*.elf
+*.bpfo
+*.bpf.o
+
+# Test output
+*.prof
+coverage.*
+*.cov
+
+# Config secrets (if any)
+.env
+.env.*
+secrets.yaml
+
