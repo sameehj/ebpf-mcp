@@ -3,8 +3,8 @@ package core
 import (
     "encoding/json"
     "net/http"
-    "ebpf-mcp/pkg/types"
-    "ebpf-mcp/internal/tools"
+    "github.com/sameehj/ebpf-mcp/pkg/types"
+    "github.com/sameehj/ebpf-mcp/internal/tools"
 )
 
 func HandleMCP(w http.ResponseWriter, r *http.Request) {

@@ -3,7 +3,7 @@ package server
 import (
     "net/http"
     "github.com/gorilla/mux"
-    "ebpf-mcp/internal/core"
+    "github.com/sameehj/ebpf-mcp/internal/core"
 )
 
 func Start() error {

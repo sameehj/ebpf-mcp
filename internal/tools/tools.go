@@ -1,7 +1,8 @@
 package tools
 
 import (
-    "ebpf-mcp/pkg/types"
+	"fmt"
+    "github.com/sameehj/ebpf-mcp/pkg/types"
 )
 
 var toolRegistry = map[string]types.Tool{
@@ -30,9 +31,10 @@ func Call(req types.RPCRequest) types.RPCResponse {
         return types.NewErrorResponse(req.ID, "Tool not found")
     }
 
-    result := map[string]string{
-        "message": "Executed tool: " + tool.ID,
-    }
+	result := map[string]string{
+		"message": "Executed tool: " + tool.ID,
+		"input": fmt.Sprintf("%v", input), // TODO: Use input in response for now, but we should use it in the tool execution later
+	}	
 
     return types.NewSuccessResponse(req.ID, map[string]interface{}{
         "content": []map[string]string{{"type": "text", "text": result["message"]}},

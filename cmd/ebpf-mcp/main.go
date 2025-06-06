@@ -2,7 +2,7 @@ package main
 
 import (
     "log"
-    "ebpf-mcp/internal/server"
+    "github.com/sameehj/ebpf-mcp/internal/server"
 )
 
 func main() {
