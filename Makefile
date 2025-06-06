@@ -38,3 +38,6 @@ test:
 fmt:
 	@echo "🎨 Formatting code..."
 	@go fmt ./...
+
+test-map-dump:
+	./scripts/test_map_dump.sh
