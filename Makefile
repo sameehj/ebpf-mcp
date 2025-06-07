@@ -14,14 +14,19 @@ endif
 
 .PHONY: all build run clean test fmt
 
-all: build
+all: build build-chat
 
-build:
+build: server build-chat
+
+server:
 	@echo "🔧 Building $(BINARY_NAME)..."
 	@mkdir -p $(OUT_DIR)
 	GO111MODULE=on go mod tidy
 	go build $(GO_BUILD_FLAGS) -o $(OUT_DIR)/$(BINARY_NAME) $(CMD_DIR)
 	@echo "✅ Build complete: $(OUT_DIR)/$(BINARY_NAME)"
+
+build-chat:
+	go build -o ./bin/ollama-chat ./cmd/ollama-chat
 
 run: build
 	@echo "🚀 Running server..."
