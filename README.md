@@ -314,14 +314,48 @@ Then POST valid JSON-RPC 2.0 requests to `localhost:8080/rpc`
 
 ## 🛣️ Roadmap
 
-* ✅ MCP JSON-RPC server
-* ✅ eBPF program loader (general purpose)
-* 🚧 Map reader / dumper
-* 🚧 Tracepoint & syscall monitors
-* 🚧 Resource reference support
-* 🚧 Streaming/log-follow support
-* 🚧 Tool plugin interface
-* 🚧 MCP `resources/list` and `resources/read` methods
+Here’s where the eBPF Agent Army is headed.
+
+> Want to contribute? Open an issue or PR — we welcome collaborators! 🤝
+
+### ✅ Phase 1: Minimal Viable Agent Layer
+
+* [x] MCP-compliant JSON-RPC server
+* [x] Tool system: `tools/list`, `tools/call`
+* [x] LLM integration via `ollama-chat` CLI
+* [x] Core tools: `info`, `hooks_inspect`, `map_dump`, `trace_errors`
+
+### 🚧 Phase 2: Observability + Interactivity
+
+* [ ] Structured map schema support
+* [ ] Event streaming & log-follow (`watch` tool output over time)
+* [ ] Tool plugin interface (`/plugins/*.so` or Go modules)
+* [ ] Agent-authenticated tool execution
+
+### 🔜 Phase 3: Full MCP Agent Runtime
+
+* [ ] Support for `resources/list`, `resources/read`
+* [ ] Prompt memory / stateful sessions
+* [ ] AI agent scaffolding (for auto-responders & watchdogs)
+* [ ] Secure CLI/API for remote tool invocation
+
+### 🧪 Experimental / Stretch Goals
+
+* [ ] Live chat UI with embedded tool visualizations
+* [ ] Cross-node tool coordination (multi-host eBPF agents)
+* [ ] Automatic map discovery + introspection
+* [ ] Integration with Kubernetes operators for agent injection
+
+---
+
+## 🎯 Bonus: Optional Labels
+
+If you track issues in GitHub, consider labeling them:
+
+* `type:tool`
+* `type:agent-feature`
+* `status:help-wanted`
+* `status:experimental`
 
 ---
 
