@@ -15,7 +15,7 @@ func Start() error {
 	router := mux.NewRouter()
 
 	// Serve /.well-known/mcp.json from embedded filesystem
-	router.PathPrefix("/.well-known/").Handler(
+	router.PathPrefix("/.well-known/mcp/").Handler(
 		http.FileServer(http.FS(embeddedFiles)),
 	)
 
