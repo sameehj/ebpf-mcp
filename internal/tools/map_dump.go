@@ -9,10 +9,26 @@ func init() {
 	RegisterTool(types.Tool{
 		ID:          "map_dump",
 		Title:       "Dump eBPF Map",
-		Description: "Returns contents of a BPF map",
-		Parameters: []types.Param{
-			{Name: "map_name", Type: "string", Required: true},
-			{Name: "max_entries", Type: "int", Required: false},
+		Description: "Returns key-value contents of a pinned BPF map by name.",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"map_name": map[string]interface{}{
+					"type":        "string",
+					"description": "Name of the pinned BPF map under /sys/fs/bpf/",
+				},
+				"max_entries": map[string]interface{}{
+					"type":    "integer",
+					"default": 1000,
+				},
+			},
+			"required": []string{"map_name"},
+		},
+		Annotations: map[string]interface{}{
+			"title":          "Dump Map",
+			"readOnlyHint":   true,
+			"idempotentHint": true,
+			"openWorldHint":  false,
 		},
 		Call: func(input map[string]interface{}) (interface{}, error) {
 			mapName, _ := input["map_name"].(string)

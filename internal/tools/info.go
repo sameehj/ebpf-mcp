@@ -10,7 +10,16 @@ func init() {
 		ID:          "info",
 		Title:       "System Info",
 		Description: "Returns kernel and environment info for eBPF",
-		Parameters:  []types.Param{},
+		InputSchema: map[string]interface{}{
+			"type":       "object",
+			"properties": map[string]interface{}{},
+		},
+		Annotations: map[string]interface{}{
+			"title":          "eBPF System Info",
+			"readOnlyHint":   true,
+			"idempotentHint": true,
+			"openWorldHint":  false,
+		},
 		Call: func(input map[string]interface{}) (interface{}, error) {
 			return ebpf.InspectSystemInfo()
 		},
