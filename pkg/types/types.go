@@ -1,42 +1,67 @@
-package core
+package types
 
-import (
-	"encoding/json"
-	"net/http"
+type RPCRequest struct {
+	JSONRPC string                 `json:"jsonrpc"`
+	Method  string                 `json:"method"`
+	Params  map[string]interface{} `json:"params"`
+	ID      interface{}            `json:"id"`
+}
 
-	"github.com/sameehj/ebpf-mcp/internal/tools"
-	"github.com/sameehj/ebpf-mcp/pkg/types"
-)
+type RPCResponse struct {
+	JSONRPC string      `json:"jsonrpc"`
+	ID      interface{} `json:"id"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   *RPCError   `json:"error,omitempty"`
+}
 
-func HandleMCP(w http.ResponseWriter, r *http.Request) {
-	var req types.RPCRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		json.NewEncoder(w).Encode(types.NewErrorResponse(nil, "Invalid JSON"))
-		return
+type RPCError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+func NewSuccessResponse(id interface{}, result interface{}) RPCResponse {
+	return RPCResponse{JSONRPC: "2.0", ID: id, Result: result}
+}
+
+// Error with default code -32600 (Invalid Request)
+func NewErrorResponse(id interface{}, message string) RPCResponse {
+	return NewErrorResponseWithCode(id, -32600, message)
+}
+
+// Error with custom code
+func NewErrorResponseWithCode(id interface{}, code int, message string) RPCResponse {
+	return RPCResponse{
+		JSONRPC: "2.0",
+		ID:      id,
+		Error: &RPCError{
+			Code:    code,
+			Message: message,
+		},
 	}
+}
 
-	switch req.Method {
-	case "initialize":
-		json.NewEncoder(w).Encode(types.NewSuccessResponse(req.ID, map[string]interface{}{
-			"protocolVersion": "2025-03-26",
-			"capabilities": map[string]interface{}{
-				"tools": map[string]bool{
-					"listChanged": true,
-				},
-			},
-			"serverInfo": map[string]string{
-				"name":    "ebpf-mcp",
-				"version": "0.1.0",
-			},
-		}))
-	case "notifications/initialized":
-		// No response needed, but OK to log
-		w.WriteHeader(http.StatusNoContent)
-	case "tools/list":
-		json.NewEncoder(w).Encode(tools.List(req.ID))
-	case "tools/call":
-		json.NewEncoder(w).Encode(tools.Call(req))
-	default:
-		json.NewEncoder(w).Encode(types.NewErrorResponse(req.ID, "Method not found"))
+type Tool struct {
+	ID          string                                                  `json:"id"`
+	Title       string                                                  `json:"title"`
+	Description string                                                  `json:"description"`
+	Parameters  []Param                                                 `json:"parameters"`
+	Call        func(input map[string]interface{}) (interface{}, error) `json:"-"`
+}
+
+func (t Tool) Metadata() ToolMetadata {
+	return ToolMetadata{
+		Name:        t.ID,
+		Description: t.Description,
 	}
+}
+
+type ToolMetadata struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type Param struct {
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Required bool   `json:"required"`
 }
