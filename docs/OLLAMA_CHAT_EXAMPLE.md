@@ -107,12 +107,3 @@ You can ask things like:
 * Open `ssh` access to your EC2 instance
 * Ollama running locally with a model like `llama3`
 * MCP server accessible on port `8080` (via SSH tunnel)
-
----
-
-## 🚀 Want to Go Further?
-
-* Set up `ssh-mcp` for AI command execution over SSH
-* Try deploying eBPF programs via `ebpf.deploy` tool
-* Write your own tool plugin and register it under `internal/tools/`
-
