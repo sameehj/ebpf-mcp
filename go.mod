@@ -11,4 +11,6 @@ require (
 
 require golang.org/x/sys v0.30.0
 
+require github.com/mark3labs/mcp-go v0.31.0 // indirect
+
 replace github.com/sameehj/ebpf-mcp => .
