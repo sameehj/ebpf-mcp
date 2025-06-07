@@ -1,8 +1,34 @@
 ## 🐝 ebpf-mcp: MCP-Compatible AI Server for Linux eBPF Control
+[![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sameehj/ebpf-mcp)](https://goreportcard.com/report/github.com/sameehj/ebpf-mcp)
 
-**License:** MIT  **Status:** Pre-release  **AI-Ready:** Yes
+> 🧠 Turn AI agents into kernel-native observability tools.  
+> 🛡️ Structured. Secure. AI-Ready.  
+> 🔬 Build the eBPF Agent Army.
+
+**License:** GPL-2.0 — all code is currently licensed under the GNU General Public License v2.0
+**Status:** Pre-release  **AI-Ready:** Yes
 
 `ebpf-mcp` is a local **MCP server** that exposes Linux eBPF observability, instrumentation, and program control through a structured, AI-compatible interface. It follows the official [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/spec), enabling AI assistants (like Claude, LLaMA, GPT) to safely and intelligently invoke kernel-level tools.
+
+---
+
+## ⚔️ The Vision: eBPF Agent Army
+
+We're building the first AI-compatible **Agent Layer for the Linux Kernel**.
+
+Imagine this:
+- You chat with your server.
+- It understands and invokes kernel-level eBPF tools.
+- It traces, debugs, monitors, and adapts — in real-time.
+
+These agents aren’t just observers.  
+They’re **doers** — inside your kernel.
+
+We call this the **eBPF Agent Army**:  
+A growing ecosystem of AI-guided agents capable of low-level, high-trust observability and control.
+
+> "Into the soul of the kernel." 🧬
 
 ---
 
@@ -56,7 +82,7 @@ Existing tooling (e.g. `bpftool`, `bpftrace`) isn't designed for automated or AI
 * Exposes safe eBPF tools as **MCP `tools`**
 * Uses **JSON-RPC 2.0**, schemas, and structured responses
 * Enables AI agents to deploy, observe, trace, and reason about kernel behavior
-* Bridges devops, security, and AI observability
+* Bridges DevOps, security, and AI observability
 
 ---
 
@@ -171,22 +197,19 @@ This project fully adheres to the [Model Context Protocol](https://github.com/mo
 ## 🧱 Architecture
 
 ```text
-[ AI Assistant / Claude / LLaMA ]
-            │
-            ▼
-      [ MCP Client ]
-            │ JSON-RPC 2.0
-            ▼
-     +-------------------+
-     |   ebpf-mcp Server |
-     +-------------------+
-            │
-            ├── Tool: ebpf.deploy
-            ├── Tool: ebpf.map_dump
-            ├── Tool: ebpf.trace_errors
-            └── ...
-            ▼
-      Linux Kernel / BPF Subsystem
+[ User Input / LLM Chat (Claude, LLaMA, GPT) ]
+                ↓
+          ollama-chat CLI
+                ↓
+         [ MCP JSON-RPC Client ]
+                ↓
+         ┌────────────────────┐
+         │    ebpf-mcp        │
+         └────────────────────┘
+        ↙          ↓           ↘
+   trace_errors  map_dump   hooks_inspect
+        ↓           ↓           ↓
+   Linux Kernel / BPF Subsystem
 ```
 
 ---
@@ -304,7 +327,7 @@ Then POST valid JSON-RPC 2.0 requests to `localhost:8080/rpc`
 
 ## 🪧 License
 
-MIT — see [LICENSE](./LICENSE)
+GPL-2.0 — see [LICENSE](./LICENSE)
 
 ---
 
@@ -316,3 +339,20 @@ MIT — see [LICENSE](./LICENSE)
 * ✨ Help extend MCP support for resource discovery and streaming
 
 > `ebpf-mcp` is the AI-ready interface to Linux kernel observability. Let's build it together.
+
+---
+
+## 🧙 Join the Kernel-Aware AI Movement
+
+This is the future of observability.  
+It’s open. It’s structured. It’s agent-ready.
+
+We’re assembling an army of open-source hackers, SREs, and kernel fans to build the next layer of AI-native infrastructure.
+
+🛠️ Star the repo  
+🧠 Join the discussion  
+💥 Contribute a tool or LLM integration
+
+> GitHub: https://github.com/sameehj/ebpf-mcp  
+> Demos: coming soon  
+> Let's awaken the agents. 🐝
