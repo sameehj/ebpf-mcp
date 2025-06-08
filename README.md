@@ -3,7 +3,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/sameehj/ebpf-mcp)](https://goreportcard.com/report/github.com/sameehj/ebpf-mcp)
 
 <p align="center">
-  <img src="assets/logo.png" alt="ebpf-mcp logo" width="180"/>
+  <img src="assets/logo.png" alt="ebpf-mcp logo" width="360"/>
 </p>
 
 > 🧠 Turn AI agents into kernel-native observability tools.  
