@@ -196,21 +196,21 @@ This project fully adheres to the [Model Context Protocol](https://github.com/mo
 
 ## 🧱 Architecture
 
+`ebpf-mcp` sits between AI agents and the Linux kernel, exposing a structured interface to low-level observability tools.
+
 ```text
-[ User Input / LLM Chat (Claude, LLaMA, GPT) ]
-                ↓
-          ollama-chat CLI
-                ↓
-         [ MCP JSON-RPC Client ]
-                ↓
-         ┌────────────────────┐
-         │    ebpf-mcp        │
-         └────────────────────┘
-        ↙          ↓           ↘
-   trace_errors  map_dump   hooks_inspect
-        ↓           ↓           ↓
-   Linux Kernel / BPF Subsystem
-```
+        [ User / AI Assistant / LLM (Claude, LLaMA, GPT) ]
+                              ↓
+                [ MCP JSON-RPC Client (e.g. ollama-chat) ]
+                              ↓
+                     ┌────────────────────┐
+                     │     ebpf-mcp       │
+                     └────────────────────┘
+                    ↙          ↓           ↘
+           trace_errors   map_dump   hooks_inspect
+                ↓            ↓           ↓
+      Linux Kernel / eBPF Subsystem (XDP, kprobes, maps)
+
 
 ---
 
