@@ -2,6 +2,10 @@
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 [![Go Report Card](https://goreportcard.com/badge/github.com/sameehj/ebpf-mcp)](https://goreportcard.com/report/github.com/sameehj/ebpf-mcp)
 
+<p align="center">
+  <img src="assets/logo.png" alt="ebpf-mcp logo" width="180"/>
+</p>
+
 > 🧠 Turn AI agents into kernel-native observability tools.  
 > 🛡️ Structured. Secure. AI-Ready.  
 > 🔬 Build the eBPF Agent Army.
