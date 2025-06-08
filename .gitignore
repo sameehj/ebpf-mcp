@@ -12,6 +12,7 @@
 # Output folders
 build/
 dist/
+bin/
 
 # Go module cache (shouldn't be committed)
 go.sum
