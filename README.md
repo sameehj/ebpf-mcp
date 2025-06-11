@@ -1,4 +1,3 @@
-````markdown
 ## 🐝 ebpf-mcp: Kernel-Level Observability for AI Agents  
 [![License: GPL v2 (eBPF)](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 [![License: Apache 2.0 (Core)](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
