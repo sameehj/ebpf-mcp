@@ -1,220 +1,149 @@
-## 🐝 ebpf-mcp: MCP-Compatible AI Server for Linux eBPF Control
-[![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+````markdown
+## 🐝 ebpf-mcp: Kernel-Level Observability for AI Agents  
+[![License: GPL v2 (eBPF)](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+[![License: Apache 2.0 (Core)](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Go Report Card](https://goreportcard.com/badge/github.com/sameehj/ebpf-mcp)](https://goreportcard.com/report/github.com/sameehj/ebpf-mcp)
 
 <p align="center">
   <img src="assets/logo.png" alt="ebpf-mcp logo" width="360"/>
 </p>
 
-> 🧠 Turn AI agents into kernel-native observability tools.  
-> 🛡️ Structured. Secure. AI-Ready.  
-> 🔬 Build the eBPF Agent Army.
+---
 
-**License:** GPL-2.0 — all code is currently licensed under the GNU General Public License v2.0
-**Status:** Pre-release  **AI-Ready:** Yes
+## 🧠 AI-Ready Observability for Linux
 
-`ebpf-mcp` is a local **MCP server** that exposes Linux eBPF observability, instrumentation, and program control through a structured, AI-compatible interface. It follows the official [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/spec), enabling AI assistants (like Claude, LLaMA, GPT) to safely and intelligently invoke kernel-level tools.
+`ebpf-mcp` is a lightweight MCP-compatible server that exposes **structured, AI-safe access to Linux kernel observability tools**, built on top of eBPF.
+
+It wraps powerful tools like `bpftool` and the Cilium eBPF library into JSON-RPC endpoints that can be called by AI agents or CLI clients, enabling:
+
+- ✅ Safe eBPF program deployment (from disk or remote URL)
+- ✅ Structured inspection of attached kernel hooks
+- ✅ BPF map introspection
+- ✅ Error tracing of failing syscalls
+- ✅ Kernel capability discovery
 
 ---
 
-## ⚔️ The Vision: eBPF Agent Army
+## ✅ What It Actually Delivers
 
-We're building the first AI-compatible **Agent Layer for the Linux Kernel**.
+These features are **implemented, tested, and available today**:
 
-Imagine this:
-- You chat with your server.
-- It understands and invokes kernel-level eBPF tools.
-- It traces, debugs, monitors, and adapts — in real-time.
+### 🔍 System Introspection
 
-These agents aren’t just observers.  
-They’re **doers** — inside your kernel.
+```bash
+curl -X POST localhost:8080/mcp -d '{
+  "jsonrpc": "2.0", "id": 1,
+  "method": "tools/call",
+  "params": { "tool": "info", "input": {} }
+}'
+````
 
-We call this the **eBPF Agent Army**:  
-A growing ecosystem of AI-guided agents capable of low-level, high-trust observability and control.
+✔ Detects kernel version, BTF support, cgroup v2
+✔ Returns structured JSON for AI agents to reason over
 
-> "Into the soul of the kernel." 🧬
+### 🧪 Hook Inspection (bpftool wrapped in JSON)
 
----
+```bash
+curl -X POST localhost:8080/mcp -d '{
+  "jsonrpc": "2.0", "id": 2,
+  "method": "tools/call",
+  "params": { "tool": "hooks_inspect", "input": {} }
+}'
+```
 
-## 📚 Table of Contents
+Returns:
 
-* [Current Status](#current-status)
-* [The Problem](#the-problem)
-* [The Solution](#the-solution)
-* [What Is MCP?](#what-is-mcp)
-* [Why eBPF?](#why-ebpf)
-* [Who Should Use This](#who-should-use-this)
-* [Project Purpose](#project-purpose)
-* [Real-World Scenarios](#real-world-scenarios)
-* [What Makes This Project Special](#what-makes-this-project-special)
-* [MCP Protocol Compliance](#mcp-protocol-compliance)
-* [Architecture](#architecture)
-* [Quick Start](#quick-start)
-* [Available Tools](#available-tools)
-* [Example JSON-RPC Calls](#example-json-rpc-calls)
-* [Roadmap](#roadmap)
-* [License](#license)
-* [Contributing](#contributing)
+```json
+{
+  "programs": [
+    {
+      "id": 14,
+      "type": "tracepoint",
+      "name": "handle_syscall_error",
+      "attached_to": "sys_enter",
+      "pinned": false
+    }
+  ]
+}
+```
 
----
+### 🚀 eBPF Deployment with Remote Support
 
-## 📌 Current Status
+```json
+{
+  "tool": "deploy",
+  "args": {
+    "program_path": "https://example.com/xdp_prog.o"
+  }
+}
+```
 
-✅ MVP under development as an **MCP-compatible Go server**
-✅ `tools/list` and `tools/call` implemented
-🚧 More tools being ported from prototype CLI
-
----
-
-## ❓ The Problem
-
-AI assistants today can't reason about low-level Linux kernel behavior — there's no structured way for them to:
-
-* Monitor system-level traffic or syscall activity
-* Load or control eBPF programs
-* Interpret BPF map data
-* Use observability tools in a secure, machine-readable way
-
-Existing tooling (e.g. `bpftool`, `bpftrace`) isn't designed for automated or AI-driven use.
-
----
-
-## ✅ The Solution
-
-`ebpf-mcp` provides an **MCP-compatible server** that:
-
-* Exposes safe eBPF tools as **MCP `tools`**
-* Uses **JSON-RPC 2.0**, schemas, and structured responses
-* Enables AI agents to deploy, observe, trace, and reason about kernel behavior
-* Bridges DevOps, security, and AI observability
+✔ Uses Cilium's Go library
+✔ Supports loading from URL or local path
+✔ Returns structured success or error output
+✔ Prints how many programs/maps were loaded
 
 ---
 
-## 🧠 What Is MCP?
+## ⚙️ System Requirements
 
-The **Model Context Protocol (MCP)** is a standardized way for AI assistants to interact with tools and data services.
-
-* JSON-RPC 2.0-based
-* Defines `tools/list`, `tools/call`, `resources/*` methods
-* Enables AI agents to discover, invoke, and reason with tools securely and predictably
-
-For full spec, see: [modelcontextprotocol/spec](https://github.com/modelcontextprotocol/spec)
-
----
-
-## 🧪 Why eBPF?
-
-[eBPF](https://ebpf.io/) enables safe, efficient, programmable observability inside the Linux kernel.
-With `ebpf-mcp`, AI assistants gain:
-
-* Live monitoring of network traffic, syscalls, errors
-* Control over program load/attach/unload lifecycle
-* Access to structured BPF map data
-* Compatibility with XDP, kprobes, tracepoints, and more
+| Requirement         | Why It Matters                  |
+| ------------------- | ------------------------------- |
+| **Linux 5.8+**      | For modern eBPF support         |
+| **BTF Enabled**     | Required for many bpftool ops   |
+| **bpftool in PATH** | Used by inspection tools        |
+| **cgroup v2**       | Required for some program types |
+| **Clang/LLVM**      | Needed only if compiling `.c`   |
 
 ---
 
-## 👥 Who Should Use This
+## 🔐 Security & Privilege Requirements
 
-* 🤖 **AI/LLM developers** building intelligent infrastructure tools
-* 🛡️ **Security engineers** needing automated threat detection
-* ⚡ **SREs/DevOps** wanting AI-assisted performance debugging
-* 🔬 **System developers** debugging kernel-level issues
-* 🏢 **Platform teams** building observability-as-a-service
+`ebpf-mcp` must run with sufficient privileges to interact with the kernel:
 
----
-
-## 🎯 Project Purpose
-
-To bridge advanced Linux kernel observability with LLMs and agents by exposing eBPF control via a **structured, discoverable, AI-native protocol** (MCP).
-
-Use `ebpf-mcp` to:
-
-* Deploy & remove eBPF programs
-* Query live map data
-* Trace syscalls
-* Monitor traffic per interface or container
-* Let agents reason about low-level system behavior
+* ✅ `CAP_BPF` and `CAP_SYS_ADMIN` usually required
+* ✅ XDP and tracepoints need elevated rights
+* ⚠️ Always audit `.o` files before loading
+* 🧪 `deploy` validates programs via kernel verifier
 
 ---
 
-## 🌟 Real-World Scenarios
+## ❌ Failure Modes to Expect
 
-### 🤖 AI-Driven Incident Response
-
-Ask: *"Why is CPU spiking on production servers?"*
-→ AI deploys CPU profilers, traces network + system usage, reports Redis overload + suggests tuning
-
-### 🎮 Interactive Kernel Debugging
-
-Ask: *"Why is my kernel module crashing?"*
-→ AI deploys kprobes, catches crash location, analyzes cause, and suggests fix
-
-### ⚡ Zero-Downtime Performance Optimization
-
-Ask: *"Why is the DB 50% slower today?"*
-→ AI traces syscalls + I/O, detects cache thrashing, recommends sysctl tweaks
-
-### 🛡️ Real-time Threat Hunting
-
-Ask: *"Scan for privilege escalation attempts"*
-→ AI monitors setuid/setgid, traces ancestry, flags abuse patterns
-
-### 🔍 Security Analysis
-
-Ask: *"Is there any suspicious network activity on this server?"*
-→ AI deploys eBPF network probes, analyzes patterns, identifies anomalies
-
-### 🚨 Performance Debugging
-
-Ask: *"Why is my application making so many syscalls?"*
-→ AI traces your app, correlates syscall patterns, suggests optimizations
-
-### 🧰 Container Monitoring
-
-Ask: *"Which containers are using the most network bandwidth?"*
-→ AI monitors traffic per namespace, provides ranked analysis
+| Condition               | Behavior                         |
+| ----------------------- | -------------------------------- |
+| Missing `bpftool`       | `hooks_inspect` fails gracefully |
+| Invalid `.o` program    | `deploy` returns error via MCP   |
+| Insufficient privileges | Kernel rejects program load      |
+| No BTF support          | Some introspection may fail      |
 
 ---
 
-## 🚀 What Makes This Project Special
+## 📡 MCP Protocol Support
 
-This project sits at the intersection of three trends:
-
-1. **AI automation** — LLMs want to control infrastructure
-2. **Observability revolution** — eBPF is becoming the standard
-3. **Structured protocols** — MCP enables safe AI tool usage
-
----
-
-## 📦 MCP Protocol Compliance
-
-This project fully adheres to the [Model Context Protocol](https://github.com/modelcontextprotocol/spec):
-
-* ✅ Supports `tools/list`, `tools/call`
-* ✅ Uses standard JSON-RPC 2.0 message format
-* ✅ Clearly defined inputs/outputs for each tool
-* ✅ No custom or invalid fields
+| Feature       | Status     |
+| ------------- | ---------- |
+| `tools/list`  | ✅          |
+| `tools/call`  | ✅          |
+| `resources/*` | 🚧 Planned |
+| Streaming     | 🚧 Planned |
 
 ---
 
-## 🧱 Architecture
+## 🔮 Roadmap
 
-`ebpf-mcp` sits between AI agents and the Linux kernel, exposing a structured interface to low-level observability tools.
+> These are **not yet implemented**, but planned:
 
-```text
-        [ User / AI Assistant / LLM (Claude, LLaMA, GPT) ]
-                              ↓
-                [ MCP JSON-RPC Client (e.g. ollama-chat) ]
-                              ↓
-                     ┌────────────────────┐
-                     │     ebpf-mcp       │
-                     └────────────────────┘
-                    ↙          ↓           ↘
-           trace_errors   map_dump   hooks_inspect
-                ↓            ↓           ↓
-      Linux Kernel / eBPF Subsystem (XDP, kprobes, maps)
+### 🧠 Claude / MCP Agent Integration
 
+* Claude CLI can call `tools/call`, but doesn’t fully interpret streamed output yet
+* Working on improved Claude and Ollama support via `ollama-chat` CLI
+* MCP compliance is prioritized for LLM compatibility
+
+### 🧰 Cursor AI (IDE Integration)
+
+* We're exploring ways for Cursor AI to call local MCP endpoints (currently not supported natively)
+* Early experiments with `ollama + ebpf-mcp` are promising for kernel debugging inside the dev environment
 
 ---
 
@@ -223,174 +152,40 @@ This project fully adheres to the [Model Context Protocol](https://github.com/mo
 ```bash
 git clone https://github.com/sameehj/ebpf-mcp.git
 cd ebpf-mcp
-go build -o ebpf-mcp-server .
-./ebpf-mcp-server
+make build
+sudo ./bin/ebpf-mcp-server -t http
 ```
 
-Then POST valid JSON-RPC 2.0 requests to `localhost:8080/rpc`
+Then call it using your favorite JSON-RPC client or the included [ollama-chat CLI](./cmd/ollama-chat).
 
 ---
 
-## 🧰 Available Tools (Sample)
+## 🔐 Dual Licensing
 
-| Tool Name              | Description                                      |
-| ---------------------- | ------------------------------------------------ |
-| `ebpf.deploy`          | Load a compiled BPF program to interface or hook |
-| `ebpf.map_dump`        | Dump contents of a named BPF map                 |
-| `ebpf.info`            | Return kernel, distro, and BPF support status    |
-| `ebpf.trace_errors`    | Trace failing syscalls (e.g., EPERM)             |
-| `ebpf.monitor.traffic` | Count packets per interface/port via XDP         |
+`ebpf-mcp` uses a dual-license model to balance kernel compatibility with integration flexibility:
 
----
+* 🧬 **GPL-2.0** for all code under `internal/ebpf/`  
+  - Covers eBPF program loading and kernel-level interactions  
+  - eBPF programs run in kernel space and may link with GPL-licensed kernel helpers  
+  - Ensures compliance and compatibility with the Linux kernel and existing GPL eBPF code
 
-## 📡 Example JSON-RPC Calls
+* 🧠 **Apache-2.0** for all other components  
+  - Covers the MCP server, protocol layer, tool registry, and client CLI  
+  - Allows integration with proprietary or commercial AI agents, dev tools, and infrastructure  
+  - Encourages broader adoption and contribution outside the kernel ecosystem
 
-### 🧠 List Tools
-
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "tools/list",
-  "id": 1
-}
-```
-
-### 🧠 Response to `tools/list`
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "tools": [
-      {
-        "name": "ebpf.deploy",
-        "description": "Load a compiled BPF program to interface or hook",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "program": { "type": "string" },
-            "interface": { "type": "string" }
-          },
-          "required": ["program", "interface"]
-        }
-      }
-    ]
-  }
-}
-```
-
-### 🚀 Call a Tool
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 2,
-  "method": "tools/call",
-  "params": {
-    "tool": "ebpf.deploy",
-    "input": {
-      "program": "xdp_pass",
-      "interface": "eth0"
-    }
-  }
-}
-```
-
-### ✅ Response to `tools/call`
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 2,
-  "result": {
-    "content": [
-      {
-        "type": "text",
-        "text": "XDP program 'xdp_pass' successfully attached to eth0"
-      }
-    ]
-  }
-}
-```
+This model keeps kernel code legally compatible while enabling wide, flexible usage in AI-first systems and enterprise automation.
 
 ---
 
-## 🛣️ Roadmap
+## 🧙 Join the eBPF Agent Army
 
-Here’s where the eBPF Agent Army is headed.
+We’re building the first structured agent layer over the Linux kernel — and we need your help:
 
-> Want to contribute? Open an issue or PR — we welcome collaborators! 🤝
+* ⭐ Star this repo
+* 🛠️ Contribute a tool (`internal/tools/`)
+* 🧪 File bug reports or integration ideas
+* 🤖 Test it with LLMs and share feedback
 
-### ✅ Phase 1: Minimal Viable Agent Layer
-
-* [x] MCP-compliant JSON-RPC server
-* [x] Tool system: `tools/list`, `tools/call`
-* [x] LLM integration via `ollama-chat` CLI
-* [x] Core tools: `info`, `hooks_inspect`, `map_dump`, `trace_errors`
-
-### 🚧 Phase 2: Observability + Interactivity
-
-* [ ] Structured map schema support
-* [ ] Event streaming & log-follow (`watch` tool output over time)
-* [ ] Tool plugin interface (`/plugins/*.so` or Go modules)
-* [ ] Agent-authenticated tool execution
-
-### 🔜 Phase 3: Full MCP Agent Runtime
-
-* [ ] Support for `resources/list`, `resources/read`
-* [ ] Prompt memory / stateful sessions
-* [ ] AI agent scaffolding (for auto-responders & watchdogs)
-* [ ] Secure CLI/API for remote tool invocation
-
-### 🧪 Experimental / Stretch Goals
-
-* [ ] Live chat UI with embedded tool visualizations
-* [ ] Cross-node tool coordination (multi-host eBPF agents)
-* [ ] Automatic map discovery + introspection
-* [ ] Integration with Kubernetes operators for agent injection
-
----
-
-## 🎯 Bonus: Optional Labels
-
-If you track issues in GitHub, consider labeling them:
-
-* `type:tool`
-* `type:agent-feature`
-* `status:help-wanted`
-* `status:experimental`
-
----
-
-## 🪧 License
-
-GPL-2.0 — see [LICENSE](./LICENSE)
-
----
-
-## 🤝 Contributing
-
-* 📥 Fork & submit PRs
-* 💡 Suggest new tools or use cases
-* 🧪 Share testing feedback
-* ✨ Help extend MCP support for resource discovery and streaming
-
-> `ebpf-mcp` is the AI-ready interface to Linux kernel observability. Let's build it together.
-
----
-
-## 🧙 Join the Kernel-Aware AI Movement
-
-This is the future of observability.  
-It’s open. It’s structured. It’s agent-ready.
-
-We’re assembling an army of open-source hackers, SREs, and kernel fans to build the next layer of AI-native infrastructure.
-
-🛠️ Star the repo  
-🧠 Join the discussion  
-💥 Contribute a tool or LLM integration
-
-> GitHub: https://github.com/sameehj/ebpf-mcp  
-> Demos: coming soon  
-> Let's awaken the agents. 🐝
+> Contact: [sameeh.j@gmail.com](mailto:sameeh[dot]j@gmail.com)
+> GitHub: [github.com/sameehj/ebpf-mcp](https://github.com/sameehj/ebpf-mcp)
