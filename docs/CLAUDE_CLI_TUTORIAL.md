@@ -50,11 +50,9 @@ Run this on **your local machine**:
 claude mcp remove ebpf  # Optional: if it already exists
 
 claude mcp add ebpf http://localhost:8080/mcp \
-  -t sse \
+  -t http \
   -H "Authorization: Bearer 75158a9db7ce4cfbdda112efdb352708c5b10fe8dd0297b5eeb1b43a93672eb5"
 ```
-
-> ✅ We use `-t sse` instead of `http` because Claude CLI expects headers only for SSE transports.
 
 ---
 
