@@ -1,15 +1,19 @@
-// main.go - Support both stdio and HTTP transports with well-known endpoints
+// main.go - eBPF-MCP server with token authentication middleware
 package main
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/sameehj/ebpf-mcp/internal/tools"
-	_ "github.com/sameehj/ebpf-mcp/internal/tools" // Import to trigger init()
 )
 
 func main() {
@@ -26,15 +30,22 @@ func main() {
 		server.WithRecovery(),
 	)
 
-	// Register all your tools with MCP
+	// Register all tools
 	tools.RegisterAllWithMCP(mcpServer)
 
-	// Choose transport based on flag
 	if transport == "http" {
-		// Create HTTP server with additional endpoints
+		token := os.Getenv("MCP_AUTH_TOKEN")
+		if token == "" {
+			token = generateRandomToken()
+			log.Println("🔐 Auto-generated auth token (no MCP_AUTH_TOKEN was set):")
+		} else {
+			log.Println("🔐 Using MCP_AUTH_TOKEN from environment:")
+		}
+		log.Printf("    %s\n", token)
+		log.Println("💡 Pass this as Authorization: Bearer <token> in Claude or curl headers.")
+
 		mux := http.NewServeMux()
 
-		// Add the well-known endpoint for MCP discovery
 		mux.HandleFunc("/.well-known/mcp/metadata.json", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			response := map[string]interface{}{
@@ -47,14 +58,11 @@ func main() {
 			json.NewEncoder(w).Encode(response)
 		})
 
-		// Create the streamable HTTP server and mount it
 		httpServer := server.NewStreamableHTTPServer(mcpServer)
+		authenticated := tokenAuthMiddleware(token, httpServer)
+		mux.Handle("/mcp", authenticated)
 
-		// Mount the MCP handler at /mcp
-		mux.Handle("/mcp", httpServer)
-
-		// Start custom HTTP server with all endpoints
-		log.Printf("🔧 ebpf-mcp HTTP server listening on :8080")
+		log.Printf("\U0001F527 ebpf-mcp HTTP server listening on :8080")
 		log.Printf("   MCP endpoint: http://localhost:8080/mcp")
 		log.Printf("   Discovery: http://localhost:8080/.well-known/mcp/metadata.json")
 
@@ -62,9 +70,37 @@ func main() {
 			log.Fatalf("Server error: %v", err)
 		}
 	} else {
-		log.Printf("🔧 ebpf-mcp stdio server starting...")
+		log.Printf("\U0001F527 ebpf-mcp stdio server starting...")
 		if err := server.ServeStdio(mcpServer); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
 	}
+}
+
+func generateRandomToken() string {
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		log.Fatalf("Failed to generate token: %v", err)
+	}
+	return hex.EncodeToString(b)
+}
+
+func tokenAuthMiddleware(expectedToken string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			http.Error(w, "Unauthorized: Missing Bearer token", http.StatusUnauthorized)
+			return
+		}
+
+		providedToken := strings.TrimPrefix(authHeader, "Bearer ")
+		if providedToken != expectedToken {
+			http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "authToken", providedToken)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
