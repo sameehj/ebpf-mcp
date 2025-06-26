@@ -41,12 +41,13 @@ func NewErrorResponseWithCode(id interface{}, code int, message string) RPCRespo
 }
 
 type Tool struct {
-	ID          string
-	Title       string
-	Description string
-	InputSchema map[string]interface{}
-	Annotations map[string]interface{}
-	Call        func(map[string]interface{}) (interface{}, error)
+	ID           string                                            `json:"id"`
+	Title        string                                            `json:"title"`
+	Description  string                                            `json:"description"`
+	InputSchema  map[string]interface{}                            `json:"input_schema"`
+	OutputSchema map[string]interface{}                            `json:"output_schema"` // ✅ Add this line
+	Annotations  map[string]interface{}                            `json:"annotations,omitempty"`
+	Call         func(map[string]interface{}) (interface{}, error) `json:"-"`
 }
 
 func (t Tool) Metadata() ToolMetadata {
