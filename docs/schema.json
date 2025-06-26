@@ -1,0 +1,398 @@
+{
+    "load_program_input.schema.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://ebpf-mcp.dev/schemas/load_program_input.json",
+      "title": "Load Program Input",
+      "description": "Schema for load_program tool input parameters",
+      "type": "object",
+      "required": ["source", "program_type"],
+      "properties": {
+        "source": {
+          "type": "object",
+          "required": ["type", "path"],
+          "properties": {
+            "type": {"enum": ["file", "data"]},
+            "path": {"type": "string"},
+            "blob": {"type": "string", "contentEncoding": "base64"},
+            "checksum": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+          },
+          "oneOf": [
+            {
+              "properties": {"type": {"const": "file"}},
+              "required": ["path"]
+            },
+            {
+              "properties": {"type": {"const": "data"}},
+              "required": ["blob"]
+            }
+          ]
+        },
+        "program_type": {"enum": ["XDP", "KPROBE", "TRACEPOINT", "CGROUP_SKB"]},
+        "section": {"type": "string"},
+        "btf_path": {"type": "string"},
+        "constraints": {
+          "type": "object",
+          "properties": {
+            "max_instructions": {"type": "integer", "default": 4096},
+            "allowed_helpers": {
+              "type": "array",
+              "items": {"type": "string"},
+              "default": ["bpf_ktime_get_ns", "bpf_trace_printk"]
+            },
+            "verify_only": {"type": "boolean", "default": false}
+          }
+        }
+      }
+    },
+  
+    "load_program_output.schema.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://ebpf-mcp.dev/schemas/load_program_output.json",
+      "title": "Load Program Output",
+      "description": "Schema for load_program tool output",
+      "type": "object",
+      "required": ["success", "tool_version"],
+      "properties": {
+        "success": {"type": "boolean"},
+        "tool_version": {"type": "string"},
+        "program_fd": {"type": "integer"},
+        "program_id": {"type": "integer"},
+        "maps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "fd", "id", "type"],
+            "properties": {
+              "name": {"type": "string"},
+              "fd": {"type": "integer"},
+              "id": {"type": "integer"},
+              "type": {"enum": ["ringbuf", "perfbuf", "hash", "array", "lru_hash", "percpu_array"]},
+              "key_size": {"type": "integer"},
+              "value_size": {"type": "integer"},
+              "max_entries": {"type": "integer"},
+              "pin_path": {"type": "string"}
+            }
+          }
+        },
+        "verifier_log": {"type": "string"},
+        "error": {"$ref": "error.schema.json#/definitions/Error"}
+      }
+    },
+  
+    "attach_program_input.schema.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://ebpf-mcp.dev/schemas/attach_program_input.json",
+      "title": "Attach Program Input",
+      "description": "Schema for attach_program tool input parameters",
+      "type": "object",
+      "required": ["program_id", "attachment"],
+      "properties": {
+        "program_id": {"type": "integer"},
+        "attachment": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["type", "params"],
+              "properties": {
+                "type": {"const": "xdp"},
+                "params": {
+                  "type": "object",
+                  "required": ["interface"],
+                  "properties": {
+                    "interface": {"type": "string"},
+                    "mode": {"enum": ["NATIVE", "GENERIC", "OFFLOAD"], "default": "NATIVE"},
+                    "link_pin_path": {"type": "string"}
+                  }
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": ["type", "params"],
+              "properties": {
+                "type": {"const": "tracepoint"},
+                "params": {
+                  "type": "object",
+                  "required": ["group", "name"],
+                  "properties": {
+                    "group": {"type": "string"},
+                    "name": {"type": "string"},
+                    "link_pin_path": {"type": "string"}
+                  }
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": ["type", "params"],
+              "properties": {
+                "type": {"const": "kprobe"},
+                "params": {
+                  "type": "object",
+                  "required": ["function"],
+                  "properties": {
+                    "function": {"type": "string"},
+                    "retprobe": {"type": "boolean", "default": false},
+                    "offset": {"type": "integer", "default": 0},
+                    "link_pin_path": {"type": "string"}
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+  
+    "attach_program_output.schema.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://ebpf-mcp.dev/schemas/attach_program_output.json",
+      "title": "Attach Program Output",
+      "description": "Schema for attach_program tool output",
+      "type": "object",
+      "required": ["success", "tool_version"],
+      "properties": {
+        "success": {"type": "boolean"},
+        "tool_version": {"type": "string"},
+        "link_id": {"type": "integer"},
+        "attachment_point": {"type": "string"},
+        "pin_path": {"type": "string"},
+        "error": {"$ref": "error.schema.json#/definitions/Error"}
+      }
+    },
+  
+    "inspect_state_input.schema.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://ebpf-mcp.dev/schemas/inspect_state_input.json",
+      "title": "Inspect State Input",
+      "description": "Schema for inspect_state tool input parameters",
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {"enum": ["programs", "maps", "links", "system", "tools"]},
+          "default": ["programs", "maps", "links", "system"]
+        },
+        "filters": {
+          "type": "object",
+          "properties": {
+            "program_type": {"enum": ["XDP", "KPROBE", "TRACEPOINT", "CGROUP_SKB"]},
+            "interface": {"type": "string"},
+            "name_pattern": {"type": "string"},
+            "program_id": {"type": "integer"},
+            "map_id": {"type": "integer"},
+            "pinned_only": {"type": "boolean"}
+          }
+        }
+      }
+    },
+  
+    "inspect_state_output.schema.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://ebpf-mcp.dev/schemas/inspect_state_output.json",
+      "title": "Inspect State Output", 
+      "description": "Schema for inspect_state tool output",
+      "type": "object",
+      "required": ["success", "tool_version"],
+      "properties": {
+        "success": {"type": "boolean"},
+        "tool_version": {"type": "string"},
+        "programs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "type", "name"],
+            "properties": {
+              "id": {"type": "integer"},
+              "fd": {"type": "integer"},
+              "type": {"type": "string"},
+              "name": {"type": "string"},
+              "attached_to": {"type": "array", "items": {"type": "string"}},
+              "instructions": {"type": "integer"},
+              "memory_kb": {"type": "integer"},
+              "load_time": {"type": "string", "format": "date-time"},
+              "pin_path": {"type": "string"}
+            }
+          }
+        },
+        "maps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "type"],
+            "properties": {
+              "id": {"type": "integer"},
+              "fd": {"type": "integer"},
+              "name": {"type": "string"},
+              "type": {"type": "string"},
+              "current_entries": {"type": "integer"},
+              "max_entries": {"type": "integer"},
+              "memory_kb": {"type": "integer"},
+              "pin_path": {"type": "string"}
+            }
+          }
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "program_id", "type", "target"],
+            "properties": {
+              "id": {"type": "integer"},
+              "program_id": {"type": "integer"},
+              "type": {"type": "string"},
+              "target": {"type": "string"},
+              "pin_path": {"type": "string"}
+            }
+          }
+        },
+        "system": {
+          "type": "object",
+          "properties": {
+            "kernel_version": {"type": "string"},
+            "btf_enabled": {"type": "boolean"},
+            "total_programs": {"type": "integer"},
+            "total_maps": {"type": "integer"},
+            "memory_usage_kb": {"type": "integer"},
+            "supported_program_types": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "version"],
+            "properties": {
+              "name": {"type": "string"},
+              "version": {"type": "string"},
+              "description": {"type": "string"},
+              "input_schema": {"type": "string"},
+              "output_schema": {"type": "string"}
+            }
+          }
+        },
+        "error": {"$ref": "error.schema.json#/definitions/Error"}
+      }
+    },
+  
+    "stream_events_input.schema.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://ebpf-mcp.dev/schemas/stream_events_input.json",
+      "title": "Stream Events Input",
+      "description": "Schema for stream_events tool input parameters",
+      "type": "object",
+      "required": ["source"],
+      "properties": {
+        "source": {
+          "type": "object",
+          "required": ["map_id", "type"],
+          "properties": {
+            "map_id": {"type": "integer"},
+            "type": {"enum": ["ringbuf", "perfbuf"]}
+          }
+        },
+        "session_id": {"type": "string"},
+        "duration_ms": {"type": "integer", "default": 10000},
+        "max_events": {"type": "integer", "default": 1000},
+        "filters": {
+          "type": "object",
+          "properties": {
+            "pid": {"type": "integer"},
+            "comm": {"type": "string"},
+            "cpu": {"type": "array", "items": {"type": "integer"}},
+            "min_timestamp_ns": {"type": "integer"}
+          }
+        },
+        "format": {"enum": ["json", "raw", "base64"], "default": "json"}
+      }
+    },
+  
+    "stream_events_output.schema.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://ebpf-mcp.dev/schemas/stream_events_output.json",
+      "title": "Stream Events Output",
+      "description": "Schema for stream_events tool output",
+      "type": "object",
+      "required": ["success", "tool_version"],
+      "properties": {
+        "success": {"type": "boolean"},
+        "tool_version": {"type": "string"},
+        "session_id": {"type": "string"},
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["timestamp_ns", "cpu"],
+            "properties": {
+              "timestamp_ns": {"type": "integer"},
+              "cpu": {"type": "integer"},
+              "pid": {"type": "integer"},
+              "comm": {"type": "string"},
+              "data": {"type": "object"},
+              "raw_data": {"type": "string"}
+            }
+          }
+        },
+        "stats": {
+          "type": "object",
+          "required": ["events_received", "events_dropped", "duration_ms"],
+          "properties": {
+            "events_received": {"type": "integer"},
+            "events_dropped": {"type": "integer"},
+            "duration_ms": {"type": "integer"},
+            "buffer_full_count": {"type": "integer"}
+          }
+        },
+        "complete": {"type": "boolean"},
+        "error": {"$ref": "error.schema.json#/definitions/Error"}
+      }
+    },
+  
+    "error.schema.json": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://ebpf-mcp.dev/schemas/error.json",
+      "title": "eBPF MCP Error Schema",
+      "description": "Standard error format for all eBPF MCP tools",
+      "definitions": {
+        "Error": {
+          "type": "object",
+          "required": ["type", "message"],
+          "properties": {
+            "type": {
+              "enum": [
+                "VALIDATION_ERROR",
+                "PERMISSION_DENIED",
+                "SYSTEM_ERROR", 
+                "VERIFIER_ERROR",
+                "UNSUPPORTED_BPF_FEATURE",
+                "RESOURCE_LIMIT_EXCEEDED",
+                "ATTACHMENT_FAILED",
+                "PROGRAM_NOT_FOUND",
+                "MAP_ACCESS_ERROR"
+              ]
+            },
+            "message": {"type": "string"},
+            "details": {"type": "object"},
+            "context": {
+              "type": "object",
+              "properties": {
+                "instruction_offset": {"type": "integer"},
+                "btf_struct": {"type": "string"},
+                "kernel_requirement": {"type": "string"},
+                "current_usage": {
+                  "type": "object",
+                  "properties": {
+                    "programs": {"type": "integer"},
+                    "maps": {"type": "integer"},
+                    "memory_kb": {"type": "integer"}
+                  }
+                },
+                "verifier_log": {"type": "string"},
+                "syscall_errno": {"type": "integer"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }

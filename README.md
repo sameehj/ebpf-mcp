@@ -1,190 +1,167 @@
-## 🐝 ebpf-mcp: Kernel-Level Observability for AI Agents  
+# 🐝 ebpf-mcp: AI-Compatible eBPF Control via Model Context Protocol
+
+> A secure, minimal, and schema-enforced MCP server for eBPF — purpose-built for AI integration, kernel introspection, and automation.
+
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-orange)](https://modelcontextprotocol.io)
+[![eBPF Support](https://img.shields.io/badge/eBPF-Linux%205.8%2B-green)](https://ebpf.io)
 [![License: GPL v2 (eBPF)](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 [![License: Apache 2.0 (Core)](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-[![Go Report Card](https://goreportcard.com/badge/github.com/sameehj/ebpf-mcp)](https://goreportcard.com/report/github.com/sameehj/ebpf-mcp)
-
-<p align="center">
-  <img src="assets/logo.png" alt="ebpf-mcp logo" width="360"/>
-</p>
 
 ---
 
-## 🧠 AI-Ready Observability for Linux
+## 🧠 What Is This?
 
-`ebpf-mcp` is a lightweight MCP-compatible server that exposes **structured, AI-safe access to Linux kernel observability tools**, built on top of eBPF.
+`ebpf-mcp` is a secure **Model Context Protocol (MCP)** server that exposes **a minimal set of structured tools** to interact with eBPF — optimized for safe AI control, automation agents, and human operators.
 
-It wraps powerful tools like `bpftool` and the Cilium eBPF library into JSON-RPC endpoints that can be called by AI agents or CLI clients, enabling:
-
-- ✅ Safe eBPF program deployment (from disk or remote URL)
-- ✅ Structured inspection of attached kernel hooks
-- ✅ BPF map introspection
-- ✅ Error tracing of failing syscalls
-- ✅ Kernel capability discovery
+It enables **loading, attaching, introspecting, and streaming** eBPF programs — all through strict JSON Schema contracts validated at runtime. No REST APIs, no shell escapes, and no bpftool wrappers.
 
 ---
 
-## ✅ What It Actually Delivers
+## 🔧 Minimal Toolset
 
-These features are **implemented, tested, and available today**:
+Each tool is designed to be schema-validatable, AI-orchestrable, and safe-by-default. They cover 80%+ of real-world observability and control workflows.
 
-### 🔍 System Introspection
+| Tool Name        | Description                                     | Capabilities Required                          |
+| ---------------- | ----------------------------------------------- | ---------------------------------------------- |
+| `load_program`   | Load and validate `.o` files (CO-RE supported)  | `CAP_BPF` or `CAP_SYS_ADMIN`                   |
+| `attach_program` | Attach program to XDP, kprobe, tracepoint hooks | Depends on type (e.g. `CAP_NET_ADMIN` for XDP) |
+| `inspect_state`  | List programs, maps, links, and tool metadata   | `CAP_BPF` (read-only)                          |
+| `stream_events`  | Stream events from ringbuf/perfbuf maps         | `CAP_BPF` (read-only)                          |
 
-```bash
-curl -X POST localhost:8080/mcp -d '{
-  "jsonrpc": "2.0", "id": 1,
-  "method": "tools/call",
-  "params": { "tool": "info", "input": {} }
-}'
-````
-
-✔ Detects kernel version, BTF support, cgroup v2
-✔ Returns structured JSON for AI agents to reason over
-
-### 🧪 Hook Inspection (bpftool wrapped in JSON)
-
-```bash
-curl -X POST localhost:8080/mcp -d '{
-  "jsonrpc": "2.0", "id": 2,
-  "method": "tools/call",
-  "params": { "tool": "hooks_inspect", "input": {} }
-}'
-```
-
-Returns:
-
-```json
-{
-  "programs": [
-    {
-      "id": 14,
-      "type": "tracepoint",
-      "name": "handle_syscall_error",
-      "attached_to": "sys_enter",
-      "pinned": false
-    }
-  ]
-}
-```
-
-### 🚀 eBPF Deployment with Remote Support
-
-```json
-{
-  "tool": "deploy",
-  "args": {
-    "program_path": "https://example.com/xdp_prog.o"
-  }
-}
-```
-
-✔ Uses Cilium's Go library
-✔ Supports loading from URL or local path
-✔ Returns structured success or error output
-✔ Prints how many programs/maps were loaded
+> 🔍 See [`docs/TOOL_SPECS.md`](./docs/TOOL_SPECS.md) for full schema definitions.
 
 ---
 
-## ⚙️ System Requirements
+## 🚀 What You Can Do
 
-| Requirement         | Why It Matters                  |
-| ------------------- | ------------------------------- |
-| **Linux 5.8+**      | For modern eBPF support         |
-| **BTF Enabled**     | Required for many bpftool ops   |
-| **bpftool in PATH** | Used by inspection tools        |
-| **cgroup v2**       | Required for some program types |
-| **Clang/LLVM**      | Needed only if compiling `.c`   |
-
----
-
-## 🔐 Security & Privilege Requirements
-
-`ebpf-mcp` must run with sufficient privileges to interact with the kernel:
-
-* ✅ `CAP_BPF` and `CAP_SYS_ADMIN` usually required
-* ✅ XDP and tracepoints need elevated rights
-* ⚠️ Always audit `.o` files before loading
-* 🧪 `deploy` validates programs via kernel verifier
-
----
-
-## ❌ Failure Modes to Expect
-
-| Condition               | Behavior                         |
-| ----------------------- | -------------------------------- |
-| Missing `bpftool`       | `hooks_inspect` fails gracefully |
-| Invalid `.o` program    | `deploy` returns error via MCP   |
-| Insufficient privileges | Kernel rejects program load      |
-| No BTF support          | Some introspection may fail      |
-
----
-
-## 📡 MCP Protocol Support
-
-| Feature       | Status     |
-| ------------- | ---------- |
-| `tools/list`  | ✅          |
-| `tools/call`  | ✅          |
-| `resources/*` | 🚧 Planned |
-| Streaming     | 🚧 Planned |
-
----
-
-## 🔮 Roadmap
-
-> These are **not yet implemented**, but planned:
-
-### 🧠 Claude / MCP Agent Integration
-
-* Claude CLI can call `tools/call`, but doesn’t fully interpret streamed output yet
-* Working on improved Claude and Ollama support via `ollama-chat` CLI
-* MCP compliance is prioritized for LLM compatibility
-
-### 🧰 Cursor AI (IDE Integration)
-
-* We're exploring ways for Cursor AI to call local MCP endpoints (currently not supported natively)
-* Early experiments with `ollama + ebpf-mcp` are promising for kernel debugging inside the dev environment
+* ✅ Load programs from disk or inline base64 with optional BTF
+* ✅ Attach to live systems with type-safe constraints
+* ✅ Inspect pinned objects, kernel version, verifier state
+* ✅ Stream real-time events with filtering by pid/comm/cpu
+* ✅ Discover available tools and their schemas
+* ✅ Integrate with Claude, Ollama, or MCP-compatible clients
 
 ---
 
 ## ⚡ Quick Start
 
 ```bash
+# Clone + build
 git clone https://github.com/sameehj/ebpf-mcp.git
 cd ebpf-mcp
 make build
-sudo ./bin/ebpf-mcp-server -t http
 ```
 
-Then call it using your favorite JSON-RPC client or the included [ollama-chat CLI](./cmd/ollama-chat).
+```bash
+# Run locally with MCP Inspector
+npx @modelcontextprotocol/inspector ./bin/ebpf-mcp-server
+```
+
+```jsonc
+// ~/.config/Claude/claude_desktop_config.json
+{
+  "mcpServers": {
+    "ebpf": {
+      "command": "/absolute/path/to/ebpf-mcp-server",
+      "args": ["-t", "stdio"]
+    }
+  }
+}
+```
 
 ---
 
-## 🔐 Dual Licensing
+## 🛡️ Security Model
 
-`ebpf-mcp` uses a dual-license model to balance kernel compatibility with integration flexibility:
+| Layer             | Controls                                 |
+| ----------------- | ---------------------------------------- |
+| eBPF execution    | Kernel verifier + resource caps          |
+| Filesystem        | No shell, no exec, path-validated        |
+| Runtime isolation | Session-scoped cleanup, strict inputs    |
+| AI safety         | Capability-aware schemas + output limits |
 
-* 🧬 **GPL-2.0** for all code under `internal/ebpf/`  
-  - Covers eBPF program loading and kernel-level interactions  
-  - eBPF programs run in kernel space and may link with GPL-licensed kernel helpers  
-  - Ensures compliance and compatibility with the Linux kernel and existing GPL eBPF code
-
-* 🧠 **Apache-2.0** for all other components  
-  - Covers the MCP server, protocol layer, tool registry, and client CLI  
-  - Allows integration with proprietary or commercial AI agents, dev tools, and infrastructure  
-  - Encourages broader adoption and contribution outside the kernel ecosystem
-
-This model keeps kernel code legally compatible while enabling wide, flexible usage in AI-first systems and enterprise automation.
+🧼 All resources are automatically cleaned up when a client disconnects (no manual unload/detach required unless pinned).
 
 ---
 
-## 🧙 Join the eBPF Agent Army
+## 📦 Project Structure
 
-We’re building the first structured agent layer over the Linux kernel — and we need your help:
+```
+.
+├── cmd/              # MCP server + CLI client
+├── internal/         # Core logic: eBPF, tools, kernel adapters
+├── pkg/types/        # JSON schema bindings + shared types
+├── docs/             # Tool specs, design notes, schemas
+└── schemas/          # JSON Schema files for each tool
+```
 
-* ⭐ Star this repo
-* 🛠️ Contribute a tool (`internal/tools/`)
-* 🧪 File bug reports or integration ideas
-* 🤖 Test it with LLMs and share feedback
+---
 
-> Contact: [sameeh.j@gmail.com](mailto:sameeh[dot]j@gmail.com)
-> GitHub: [github.com/sameehj/ebpf-mcp](https://github.com/sameehj/ebpf-mcp)
+## 📈 Tool Spec Coverage
+
+| Tool             | Status | Notes                                    |
+| ---------------- | ------ | ---------------------------------------- |
+| `load_program`   | ✅      | Supports CO-RE, verify-only mode         |
+| `attach_program` | ✅      | Supports XDP, kprobe, tracepoint         |
+| `inspect_state`  | ✅      | Introspects maps, programs, links, tools |
+| `stream_events`  | ✅      | Streams ringbuf/perfbuf with filters     |
+
+---
+
+## 🧠 Advanced Design Notes
+
+### ✅ Lifecycle Management
+
+* 🔒 **No manual detach**: Links are closed automatically unless pinned
+* 🧹 **Auto cleanup**: FDs and memory are released on disconnect
+* 📎 **Pinning**: Optional pin paths (`/sys/fs/bpf/...`) for maps/programs/links
+
+### 🤖 AI Tooling Compatibility
+
+* All tools are **strictly typed** with published schemas
+* Responses include:
+
+  * `tool_version`
+  * `verifier_log` (for debugging)
+  * Structured `error` with `context`
+
+### 🔗 Extensibility
+
+Future optional tools:
+
+* `pin_object` / `unpin_object`
+* `detach_link`
+* `map_batch_op`
+
+These are omitted from the default for security and simplicity.
+
+---
+
+## 📚 References
+
+* [Linux Kernel eBPF Docs](https://docs.kernel.org/bpf/)
+* [Model Context Protocol](https://modelcontextprotocol.io)
+* [JSON Schema Spec (2020-12)](https://json-schema.org/)
+* [eBPF Security Best Practices](https://ebpf.io/security/)
+* [Cilium for Kubernetes Observability](https://cilium.io/)
+
+---
+
+## 📜 Licensing
+
+| Component        | License    |
+| ---------------- | ---------- |
+| `internal/ebpf/` | GPL-2.0    |
+| Everything else  | Apache-2.0 |
+
+---
+
+## ✉️ Contact
+
+📬 [GitHub – sameehj/ebpf-mcp](https://github.com/sameehj/ebpf-mcp)
+🛠 Contributions, issues, and PRs welcome!
+
+---
+
+> **Structured. Safe. Schema-native.**
+> `ebpf-mcp` brings eBPF to the age of AI.
