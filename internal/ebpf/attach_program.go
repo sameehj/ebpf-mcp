@@ -80,6 +80,57 @@ func AttachProgram(args *AttachProgramArgs) (*AttachResult, error) {
 			PinPath:         pinPath,
 		}, nil
 
+	case "tracepoint":
+		params := args.Attachment.Params
+		group, _ := params["group"].(string)
+		name, _ := params["name"].(string)
+		pinPath, _ := params["link_pin_path"].(string)
+
+		linkObj, err := link.Tracepoint(group, name, prog, nil)
+		if err != nil {
+			return &AttachResult{Success: false, Error: &ErrorDetail{Type: "ATTACHMENT_FAILED", Message: err.Error()}}, nil
+		}
+		if pinPath != "" {
+			_ = os.MkdirAll(pinPath, 0755)
+			_ = linkObj.Pin(pinPath)
+		}
+		return &AttachResult{
+			Success:         true,
+			ToolVersion:     "v1",
+			AttachmentPoint: fmt.Sprintf("tracepoint:%s/%s", group, name),
+			PinPath:         pinPath,
+		}, nil
+
+	case "kprobe":
+		params := args.Attachment.Params
+		funcName, _ := params["function"].(string)
+		retprobe, _ := params["retprobe"].(bool)
+		offset, _ := params["offset"].(float64)
+		pinPath, _ := params["link_pin_path"].(string)
+
+		opts := &link.KprobeOptions{
+			Offset: uint64(offset),
+		}
+		var linkObj link.Link
+		if retprobe {
+			linkObj, err = link.Kretprobe(funcName, prog, opts)
+		} else {
+			linkObj, err = link.Kprobe(funcName, prog, opts)
+		}
+		if err != nil {
+			return &AttachResult{Success: false, Error: &ErrorDetail{Type: "ATTACHMENT_FAILED", Message: err.Error()}}, nil
+		}
+		if pinPath != "" {
+			_ = os.MkdirAll(pinPath, 0755)
+			_ = linkObj.Pin(pinPath)
+		}
+		return &AttachResult{
+			Success:         true,
+			ToolVersion:     "v1",
+			AttachmentPoint: fmt.Sprintf("kprobe:%s", funcName),
+			PinPath:         pinPath,
+		}, nil
+
 	default:
 		return &AttachResult{Success: false, Error: &ErrorDetail{Type: "VALIDATION_ERROR", Message: "unsupported attachment type"}}, nil
 	}
