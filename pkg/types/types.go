@@ -41,13 +41,14 @@ func NewErrorResponseWithCode(id interface{}, code int, message string) RPCRespo
 }
 
 type Tool struct {
-	ID           string                                            `json:"id"`
-	Title        string                                            `json:"title"`
-	Description  string                                            `json:"description"`
-	InputSchema  map[string]interface{}                            `json:"input_schema"`
-	OutputSchema map[string]interface{}                            `json:"output_schema"` // ✅ Add this line
-	Annotations  map[string]interface{}                            `json:"annotations,omitempty"`
-	Call         func(map[string]interface{}) (interface{}, error) `json:"-"`
+	ID           string                                                `json:"id"`
+	Title        string                                                `json:"title"`
+	Description  string                                                `json:"description"`
+	InputSchema  map[string]interface{}                                `json:"input_schema"`
+	OutputSchema map[string]interface{}                                `json:"output_schema"`
+	Annotations  map[string]interface{}                                `json:"annotations,omitempty"`
+	Call         func(map[string]interface{}) (interface{}, error)     `json:"-"`
+	Stream       func(map[string]interface{}, func(interface{})) error `json:"-"` // 👈 add this
 }
 
 func (t Tool) Metadata() ToolMetadata {
@@ -66,4 +67,16 @@ type Param struct {
 	Name     string `json:"name"`
 	Type     string `json:"type"`
 	Required bool   `json:"required"`
+}
+
+type ErrorDetail struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
+}
+
+func ValidationError(msg string) *ErrorDetail {
+	return &ErrorDetail{
+		Type:    "VALIDATION_ERROR",
+		Message: msg,
+	}
 }
