@@ -265,6 +265,11 @@ func handleToolCall(tool types.Tool, request mcp.CallToolRequest) (*mcp.CallTool
 		}
 		return mcp.NewToolResultText(fmt.Sprintf("%v", v)), nil
 	default:
+		// NEW: Handle structs by marshaling to JSON instead of using %v
+		if jsonBytes, err := json.MarshalIndent(v, "", "  "); err == nil {
+			return mcp.NewToolResultText(string(jsonBytes)), nil
+		}
+		// Fallback to string representation only if JSON marshaling fails
 		return mcp.NewToolResultText(fmt.Sprintf("%v", v)), nil
 	}
 }
