@@ -2,93 +2,139 @@
 package tools
 
 import (
+	"fmt"
+
 	"github.com/sameehj/ebpf-mcp/internal/ebpf"
 	"github.com/sameehj/ebpf-mcp/pkg/types"
 )
+
+func AttachProgramTool(input map[string]interface{}) (interface{}, error) {
+	// Add debug logging
+	fmt.Printf("[DEBUG] AttachProgram input: %+v\n", input)
+
+	// Handle nil or empty input
+	if input == nil {
+		return &ebpf.AttachProgramResult{
+			Success:     false,
+			ToolVersion: "v1",
+			Message:     "input is nil",
+		}, fmt.Errorf("input is nil")
+	}
+
+	// Safe parsing with nil checks
+	args, err := parseAttachProgramInputSafely(input)
+	if err != nil {
+		return &ebpf.AttachProgramResult{
+			Success:     false,
+			ToolVersion: "v1",
+			Message:     fmt.Sprintf("parsing error: %v", err),
+		}, err
+	}
+
+	// Call the actual eBPF attachment function
+	return ebpf.AttachProgram(args)
+}
+
+func parseAttachProgramInputSafely(input map[string]interface{}) (*ebpf.AttachProgramArgs, error) {
+	var args ebpf.AttachProgramArgs
+
+	// Parse program_id
+	if programIDRaw, exists := input["program_id"]; exists && programIDRaw != nil {
+		if programID, ok := programIDRaw.(float64); ok {
+			args.ProgramID = int(programID)
+		} else {
+			return nil, fmt.Errorf("program_id must be a number")
+		}
+	} else {
+		return nil, fmt.Errorf("program_id is required")
+	}
+
+	// Parse attach_type
+	if attachTypeRaw, exists := input["attach_type"]; exists && attachTypeRaw != nil {
+		if attachType, ok := attachTypeRaw.(string); ok {
+			args.AttachType = attachType
+		} else {
+			return nil, fmt.Errorf("attach_type must be a string")
+		}
+	} else {
+		return nil, fmt.Errorf("attach_type is required")
+	}
+
+	// Parse target (optional for some attach types)
+	if targetRaw, exists := input["target"]; exists && targetRaw != nil {
+		if target, ok := targetRaw.(string); ok {
+			args.Target = target
+		}
+	}
+
+	// Parse pin_path (optional)
+	if pinPathRaw, exists := input["pin_path"]; exists && pinPathRaw != nil {
+		if pinPath, ok := pinPathRaw.(string); ok {
+			args.PinPath = pinPath
+		}
+	}
+
+	// Parse options (optional)
+	if optionsRaw, exists := input["options"]; exists && optionsRaw != nil {
+		if options, ok := optionsRaw.(map[string]interface{}); ok {
+			args.Options = options
+		}
+	}
+
+	return &args, nil
+}
 
 func init() {
 	RegisterTool(types.Tool{
 		ID:          "attach_program",
 		Title:       "Attach eBPF Program",
-		Description: "Attaches a previously loaded eBPF program to a kernel hook (XDP, tracepoint, kprobe).",
+		Description: "Attaches a loaded eBPF program to a kernel hook point.",
 		InputSchema: map[string]interface{}{
-			"$schema":     "https://json-schema.org/draft/2020-12/schema",
-			"$id":         "https://ebpf-mcp.dev/schemas/attach_program_input.json",
-			"title":       "Attach Program Input",
-			"description": "Schema for attach_program tool input parameters",
-			"type":        "object",
-			"required":    []string{"program_id", "attachment"},
+			"type":     "object",
+			"required": []string{"program_id", "attach_type"},
 			"properties": map[string]interface{}{
-				"program_id": map[string]interface{}{"type": "integer"},
-				"attachment": map[string]interface{}{
-					"oneOf": []interface{}{
-						map[string]interface{}{
-							"type":     "object",
-							"required": []string{"type", "params"},
-							"properties": map[string]interface{}{
-								"type": map[string]interface{}{"const": "xdp"},
-								"params": map[string]interface{}{
-									"type":     "object",
-									"required": []string{"interface"},
-									"properties": map[string]interface{}{
-										"interface":     map[string]interface{}{"type": "string"},
-										"mode":          map[string]interface{}{"enum": []string{"NATIVE", "GENERIC", "OFFLOAD"}, "default": "NATIVE"},
-										"link_pin_path": map[string]interface{}{"type": "string"},
-									},
-								},
-							},
+				"program_id": map[string]interface{}{
+					"type":        "integer",
+					"description": "ID of the loaded eBPF program",
+				},
+				"attach_type": map[string]interface{}{
+					"enum":        []string{"xdp", "kprobe", "kretprobe", "tracepoint", "cgroup"},
+					"description": "Type of attachment point",
+				},
+				"target": map[string]interface{}{
+					"type":        "string",
+					"description": "Target interface, function, or cgroup path",
+				},
+				"pin_path": map[string]interface{}{
+					"type":        "string",
+					"description": "Path to pin the link object",
+				},
+				"options": map[string]interface{}{
+					"type":        "object",
+					"description": "Additional attachment options",
+					"properties": map[string]interface{}{
+						"flags": map[string]interface{}{
+							"type": "integer",
 						},
-						map[string]interface{}{
-							"type":     "object",
-							"required": []string{"type", "params"},
-							"properties": map[string]interface{}{
-								"type": map[string]interface{}{"const": "tracepoint"},
-								"params": map[string]interface{}{
-									"type":     "object",
-									"required": []string{"group", "name"},
-									"properties": map[string]interface{}{
-										"group":         map[string]interface{}{"type": "string"},
-										"name":          map[string]interface{}{"type": "string"},
-										"link_pin_path": map[string]interface{}{"type": "string"},
-									},
-								},
-							},
-						},
-						map[string]interface{}{
-							"type":     "object",
-							"required": []string{"type", "params"},
-							"properties": map[string]interface{}{
-								"type": map[string]interface{}{"const": "kprobe"},
-								"params": map[string]interface{}{
-									"type":     "object",
-									"required": []string{"function"},
-									"properties": map[string]interface{}{
-										"function":      map[string]interface{}{"type": "string"},
-										"retprobe":      map[string]interface{}{"type": "boolean", "default": false},
-										"offset":        map[string]interface{}{"type": "integer", "default": 0},
-										"link_pin_path": map[string]interface{}{"type": "string"},
-									},
-								},
-							},
+						"priority": map[string]interface{}{
+							"type": "integer",
 						},
 					},
 				},
 			},
 		},
 		OutputSchema: map[string]interface{}{
-			"$schema":     "https://json-schema.org/draft/2020-12/schema",
-			"$id":         "https://ebpf-mcp.dev/schemas/attach_program_output.json",
-			"title":       "Attach Program Output",
-			"description": "Schema for attach_program tool output",
-			"type":        "object",
-			"required":    []string{"success", "tool_version"},
+			"type":     "object",
+			"required": []string{"success", "tool_version"},
 			"properties": map[string]interface{}{
-				"success":          map[string]interface{}{"type": "boolean"},
-				"tool_version":     map[string]interface{}{"type": "string"},
-				"link_id":          map[string]interface{}{"type": "integer"},
-				"attachment_point": map[string]interface{}{"type": "string"},
-				"pin_path":         map[string]interface{}{"type": "string"},
-				"error":            map[string]interface{}{"$ref": "error.schema.json#/definitions/Error"},
+				"success":      map[string]interface{}{"type": "boolean"},
+				"tool_version": map[string]interface{}{"type": "string"},
+				"link_id":      map[string]interface{}{"type": "integer"},
+				"pin_path":     map[string]interface{}{"type": "string"},
+				"message":      map[string]interface{}{"type": "string"},
+				"error": map[string]interface{}{
+					"$ref": "https://ebpf-mcp.dev/schemas/error.schema.json#/definitions/Error",
+				},
 			},
 		},
 		Annotations: map[string]interface{}{
@@ -96,12 +142,6 @@ func init() {
 			"idempotentHint": false,
 			"readOnlyHint":   false,
 		},
-		Call: func(input map[string]interface{}) (interface{}, error) {
-			args, err := ebpf.ParseAttachProgramArgs(input)
-			if err != nil {
-				return nil, err
-			}
-			return ebpf.AttachProgram(args)
-		},
+		Call: AttachProgramTool,
 	})
 }

@@ -1,4 +1,4 @@
-// main.go - eBPF-MCP server with token authentication middleware
+// main.go - eBPF-MCP server with debug logging
 package main
 
 import (
@@ -16,13 +16,25 @@ import (
 	"github.com/sameehj/ebpf-mcp/internal/tools"
 )
 
+var debugMode bool
+
 func main() {
 	var transport string
 	flag.StringVar(&transport, "t", "stdio", "Transport type (stdio or http)")
 	flag.StringVar(&transport, "transport", "stdio", "Transport type (stdio or http)")
+	flag.BoolVar(&debugMode, "debug", false, "Enable debug logging")
 	flag.Parse()
 
+	// Configure logging
+	if debugMode {
+		log.SetFlags(log.LstdFlags | log.Lshortfile)
+		log.Printf("[DEBUG] Debug logging enabled")
+	} else {
+		log.SetFlags(log.LstdFlags)
+	}
+
 	// Create MCP server
+	log.Printf("[DEBUG] Creating MCP server...")
 	mcpServer := server.NewMCPServer(
 		"ebpf-mcp",
 		"0.1.0",
@@ -31,6 +43,7 @@ func main() {
 	)
 
 	// Register all tools
+	log.Printf("[DEBUG] Registering tools...")
 	tools.RegisterAllWithMCP(mcpServer)
 
 	if transport == "http" {
@@ -47,6 +60,9 @@ func main() {
 		mux := http.NewServeMux()
 
 		mux.HandleFunc("/.well-known/mcp/metadata.json", func(w http.ResponseWriter, r *http.Request) {
+			if debugMode {
+				log.Printf("[DEBUG] Metadata request from %s", r.RemoteAddr)
+			}
 			w.Header().Set("Content-Type", "application/json")
 			response := map[string]interface{}{
 				"schema_version": "v1",
@@ -88,16 +104,31 @@ func generateRandomToken() string {
 
 func tokenAuthMiddleware(expectedToken string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if debugMode {
+			log.Printf("[DEBUG] Auth request: %s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+			log.Printf("[DEBUG] Headers: %v", r.Header)
+		}
+
 		authHeader := r.Header.Get("Authorization")
 		if !strings.HasPrefix(authHeader, "Bearer ") {
+			if debugMode {
+				log.Printf("[DEBUG] Missing Bearer token in Authorization header: '%s'", authHeader)
+			}
 			http.Error(w, "Unauthorized: Missing Bearer token", http.StatusUnauthorized)
 			return
 		}
 
 		providedToken := strings.TrimPrefix(authHeader, "Bearer ")
 		if providedToken != expectedToken {
+			if debugMode {
+				log.Printf("[DEBUG] Invalid token provided: '%s' (expected: '%s')", providedToken, expectedToken)
+			}
 			http.Error(w, "Unauthorized: Invalid token", http.StatusUnauthorized)
 			return
+		}
+
+		if debugMode {
+			log.Printf("[DEBUG] Authentication successful")
 		}
 
 		ctx := context.WithValue(r.Context(), "authToken", providedToken)

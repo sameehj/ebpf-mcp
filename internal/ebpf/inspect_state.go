@@ -14,14 +14,14 @@ type InspectStateArgs struct {
 }
 
 type InspectStateResult struct {
-	Success     bool              `json:"success"`
-	ToolVersion string            `json:"tool_version"`
-	Programs    []Program         `json:"programs,omitempty"`
-	Maps        []Map             `json:"maps,omitempty"`
-	Links       []Link            `json:"links,omitempty"`
-	System      *SystemInfo       `json:"system,omitempty"`
-	Tools       []InspectToolMeta `json:"tools,omitempty"`
-	Error       *ErrorDetail      `json:"error,omitempty"`
+	Success     bool               `json:"success"`
+	ToolVersion string             `json:"tool_version"`
+	Programs    []Program          `json:"programs,omitempty"`
+	Maps        []Map              `json:"maps,omitempty"`
+	Links       []Link             `json:"links,omitempty"`
+	System      *SystemInfo        `json:"system,omitempty"`
+	Tools       []InspectToolMeta  `json:"tools,omitempty"`
+	Error       *types.ErrorDetail `json:"error,omitempty"`
 }
 
 type Program struct {
