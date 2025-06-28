@@ -20,6 +20,8 @@ var debugMode bool
 
 func main() {
 	var transport string
+	var port string
+	flag.StringVar(&port, "port", "8080", "Port to listen on")
 	flag.StringVar(&transport, "t", "stdio", "Transport type (stdio or http)")
 	flag.StringVar(&transport, "transport", "stdio", "Transport type (stdio or http)")
 	flag.BoolVar(&debugMode, "debug", false, "Enable debug logging")
@@ -66,7 +68,7 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			response := map[string]interface{}{
 				"schema_version": "v1",
-				"entrypoint_url": "http://localhost:8080/mcp",
+				"entrypoint_url": "http://localhost:" + port + "/mcp",
 				"display_name":   "eBPF MCP Server",
 				"description":    "Exposes Linux kernel tools via MCP protocol",
 				"tool_filter":    "all",
@@ -78,11 +80,11 @@ func main() {
 		authenticated := tokenAuthMiddleware(token, httpServer)
 		mux.Handle("/mcp", authenticated)
 
-		log.Printf("\U0001F527 ebpf-mcp HTTP server listening on :8080")
-		log.Printf("   MCP endpoint: http://localhost:8080/mcp")
-		log.Printf("   Discovery: http://localhost:8080/.well-known/mcp/metadata.json")
+		log.Printf("\U0001F527 ebpf-mcp HTTP server listening on :%s", port)
+		log.Printf("   MCP endpoint: http://localhost:%s/mcp", port)
+		log.Printf("   Discovery: http://localhost:%s/.well-known/mcp/metadata.json", port)
 
-		if err := http.ListenAndServe(":8080", mux); err != nil {
+		if err := http.ListenAndServe(":" + port, mux); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
 	} else {
