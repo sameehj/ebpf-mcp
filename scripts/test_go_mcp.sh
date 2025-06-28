@@ -1,1 +1,0 @@
-go run ./scripts/test_go_mcp.go --http http://localhost:8080/mcp
