@@ -271,6 +271,7 @@ func init() {
 					"type": "object",
 					"properties": map[string]interface{}{
 						"type": map[string]interface{}{
+							"type": "string",
 							"enum": []string{"file", "data", "url"},
 						},
 						"path": map[string]interface{}{
@@ -290,6 +291,7 @@ func init() {
 					},
 				},
 				"program_type": map[string]interface{}{
+					"type": "string",
 					"enum": []string{"XDP", "KPROBE", "TRACEPOINT", "CGROUP_SKB"},
 				},
 				"section": map[string]interface{}{

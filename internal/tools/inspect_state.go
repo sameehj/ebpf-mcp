@@ -84,6 +84,7 @@ func init() {
 				"fields": map[string]any{
 					"type": "array",
 					"items": map[string]any{
+						"type": "string",
 						"enum": []string{"programs", "maps", "links", "system"},
 					},
 					"default": []string{"programs", "maps", "links", "system"},

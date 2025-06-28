@@ -98,6 +98,7 @@ func init() {
 					"description": "ID of the loaded eBPF program",
 				},
 				"attach_type": map[string]interface{}{
+					"type":        "string",
 					"enum":        []string{"xdp", "kprobe", "kretprobe", "tracepoint", "cgroup"},
 					"description": "Type of attachment point",
 				},

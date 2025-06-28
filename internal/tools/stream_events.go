@@ -43,6 +43,7 @@ func init() {
 					},
 				},
 				"format": map[string]interface{}{
+					"type":    "string",
 					"enum":    []string{"json", "raw", "base64"},
 					"default": "json",
 				},
