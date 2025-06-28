@@ -9,6 +9,10 @@ INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="ebpf-mcp-server"
 SERVICE_NAME="ebpf-mcp"
 
+# default port - 8080
+# custom port can be set using --port/-p option
+CUSTOM_PORT="8080"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -37,6 +41,24 @@ log_error() {
 log_header() {
     echo -e "${PURPLE}$1${NC}"
 }
+
+
+# parse --port/-p and optional version
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --port|-p)
+            CUSTOM_PORT="$2"
+            shift 2
+            ;;
+        --uninstall|--version|--help|-h)
+            break
+            ;;
+        *)
+            VERSION_ARG="$1"
+            shift
+            ;;
+    esac
+done
 
 # Check if running as root
 check_root() {
@@ -151,7 +173,17 @@ create_service() {
     local service_file="/etc/systemd/system/${SERVICE_NAME}.service"
     
     log_info "Creating systemd service..."
-    
+
+    # detect if port flag is supported
+    local exec_opts="-t http"
+    if "${INSTALL_DIR}/${BINARY_NAME}" --help 2>&1 | grep -q -- '-port'; then
+        log_info "Binary supports custom port. Setting to ${CUSTOM_PORT}"
+        exec_opts="${exec_opts} --port ${CUSTOM_PORT}"
+    else
+        CUSTOM_PORT="8080"
+        log_warning "Binary does not support custom port. Defaulting to ${CUSTOM_PORT}"
+    fi 
+
     cat > "$service_file" << EOF
 [Unit]
 Description=eBPF MCP Server
@@ -163,7 +195,7 @@ Wants=network.target
 Type=simple
 User=root
 Group=root
-ExecStart=${INSTALL_DIR}/${BINARY_NAME} -t http
+ExecStart=${INSTALL_DIR}/${BINARY_NAME} ${exec_opts}
 Environment=MCP_AUTH_TOKEN=${token}
 Restart=always
 RestartSec=5
@@ -197,7 +229,7 @@ EOF
 # Setup Claude CLI integration
 setup_claude() {
     local token=$(cat /etc/ebpf-mcp-token 2>/dev/null || echo "TOKEN_NOT_FOUND")
-    
+
     echo
     log_header "🎯 Claude CLI Integration Setup"
     echo "================================="
@@ -207,7 +239,7 @@ setup_claude() {
     echo "   sudo systemctl enable ebpf-mcp"
     echo
     echo "2. Add to Claude CLI:"
-    echo "   claude mcp add ebpf http://localhost:8080/mcp -t http -H \"Authorization: Bearer $token\""
+    echo "   claude mcp add ebpf http://localhost:${CUSTOM_PORT}/mcp -t http -H \"Authorization: Bearer $token\""
     echo
     echo "3. Test the integration:"
     echo "   claude --debug"
@@ -256,7 +288,7 @@ check_prerequisites() {
         log_error "Systemd is required but not found"
         exit 1
     fi
-    
+
     # Check for required tools
     local missing_tools=""
     for tool in openssl xxd; do
@@ -302,12 +334,12 @@ show_version() {
 main() {
     echo
     log_header "🚀 eBPF MCP Server Installer"
-    echo "================================="
+    echo "================================="    
     echo
     
     check_root
     check_prerequisites
-    install_binary "$@"
+    install_binary "$VERSION_ARG"
     create_service
     setup_claude
     
@@ -338,13 +370,15 @@ case "${1:-}" in
         echo "Usage: $0 [OPTIONS] [VERSION]"
         echo
         echo "Options:"
-        echo "  --uninstall    Remove eBPF MCP Server"
-        echo "  --version      Show installed version"
-        echo "  --help, -h     Show this help message"
+        echo "  --uninstall       Remove eBPF MCP Server"
+        echo "  --version         Show installed version"
+        echo "  --help, -h        Show this help message"
+        echo "  --port, -p <PORT> Run server on custom port (default: 8080)"
         echo
         echo "Examples:"
         echo "  curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sudo bash"
         echo "  sudo $0 v1.0.0"
+        echo "  sudo $0 --port 9090"
         echo "  sudo $0 --uninstall"
         ;;
     *)
