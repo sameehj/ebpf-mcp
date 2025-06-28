@@ -163,7 +163,7 @@ Wants=network.target
 Type=simple
 User=root
 Group=root
-ExecStart=${INSTALL_DIR}/${BINARY_NAME} -t http -p 8080
+ExecStart=${INSTALL_DIR}/${BINARY_NAME} -t http
 Environment=MCP_AUTH_TOKEN=${token}
 Restart=always
 RestartSec=5
