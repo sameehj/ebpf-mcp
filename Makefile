@@ -93,29 +93,34 @@ lint: ## Run linters
 release: clean release-all ## Build release binaries for all platforms
 	@echo "🚀 Building release $(VERSION)..."
 	@mkdir -p $(RELEASE_DIR)/$(VERSION)
-	
+
 	@echo "  📦 Building Linux x86_64..."
 	@GOOS=linux GOARCH=amd64 go build $(BUILD_FLAGS) -o $(RELEASE_DIR)/$(VERSION)/$(BINARY_NAME)-linux-amd64 $(CMD_DIR)
-	
+	@tar -czf $(RELEASE_DIR)/$(VERSION)/$(BINARY_NAME)-linux-amd64.tar.gz -C $(RELEASE_DIR)/$(VERSION) $(BINARY_NAME)-linux-amd64
+
 	@echo "  📦 Building Linux ARM64..."
 	@GOOS=linux GOARCH=arm64 go build $(BUILD_FLAGS) -o $(RELEASE_DIR)/$(VERSION)/$(BINARY_NAME)-linux-arm64 $(CMD_DIR)
-	
+	@tar -czf $(RELEASE_DIR)/$(VERSION)/$(BINARY_NAME)-linux-arm64.tar.gz -C $(RELEASE_DIR)/$(VERSION) $(BINARY_NAME)-linux-arm64
+
 	@echo "  📦 Building macOS x86_64..."
 	@GOOS=darwin GOARCH=amd64 go build $(BUILD_FLAGS) -o $(RELEASE_DIR)/$(VERSION)/$(BINARY_NAME)-darwin-amd64 $(CMD_DIR)
-	
+	@tar -czf $(RELEASE_DIR)/$(VERSION)/$(BINARY_NAME)-darwin-amd64.tar.gz -C $(RELEASE_DIR)/$(VERSION) $(BINARY_NAME)-darwin-amd64
+
 	@echo "  📦 Building macOS ARM64..."
 	@GOOS=darwin GOARCH=arm64 go build $(BUILD_FLAGS) -o $(RELEASE_DIR)/$(VERSION)/$(BINARY_NAME)-darwin-arm64 $(CMD_DIR)
-	
+	@tar -czf $(RELEASE_DIR)/$(VERSION)/$(BINARY_NAME)-darwin-arm64.tar.gz -C $(RELEASE_DIR)/$(VERSION) $(BINARY_NAME)-darwin-arm64
+
 	@echo "  🔐 Generating checksums..."
-	@cd $(RELEASE_DIR)/$(VERSION) && sha256sum * > checksums.txt
-	
+	@cd $(RELEASE_DIR)/$(VERSION) && sha256sum *.tar.gz *.tar.gz > checksums.txt
+
 	@echo "  📋 Creating release info..."
 	@echo "Version: $(VERSION)" > $(RELEASE_DIR)/$(VERSION)/release-info.txt
 	@echo "Commit: $(COMMIT)" >> $(RELEASE_DIR)/$(VERSION)/release-info.txt
 	@echo "Build Time: $(BUILD_TIME)" >> $(RELEASE_DIR)/$(VERSION)/release-info.txt
-	
+
 	@echo "✅ Release $(VERSION) complete in $(RELEASE_DIR)/$(VERSION)"
 	@ls -la $(RELEASE_DIR)/$(VERSION)
+
 
 release-all: ## Internal target for building all platforms
 	@echo "Building release binaries..."
