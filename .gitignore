@@ -49,3 +49,5 @@ coverage.*
 .env.*
 secrets.yaml
 
+# custom dploy script
+deploy.sh

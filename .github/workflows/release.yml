@@ -1,0 +1,229 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Run tests
+      run: |
+        go mod tidy
+        go test -v ./...
+
+  build:
+    name: Build Release
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin]
+        goarch: [amd64, arm64]
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        VERSION: ${{ steps.version.outputs.version }}
+      run: |
+        COMMIT=$(git rev-parse --short HEAD)
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        LDFLAGS="-X main.Version=${VERSION} -X main.Commit=${COMMIT} -X main.BuildTime=${BUILD_TIME}"
+        
+        BINARY_NAME="ebpf-mcp-server-${GOOS}-${GOARCH}"
+        go build -ldflags="${LDFLAGS}" -o ${BINARY_NAME} ./cmd/ebpf-mcp
+        
+        # Create tarball
+        tar -czf ${BINARY_NAME}.tar.gz ${BINARY_NAME}
+        
+        # Generate checksum
+        sha256sum ${BINARY_NAME}.tar.gz > ${BINARY_NAME}.tar.gz.sha256
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: binaries
+        path: |
+          ebpf-mcp-server-*
+          *.sha256
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: binaries
+        path: ./binaries
+    
+    - name: Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Create release notes
+      run: |
+        cat > release_notes.md << 'EOF'
+        # eBPF MCP Server ${{ steps.version.outputs.version }} 🚀
+        
+        ## 🌟 What's New
+        - Complete eBPF program management toolkit
+        - Real-time kernel event streaming with filtering
+        - Production-grade reliability and error handling
+        - Full Claude CLI integration support
+        
+        ## 📦 Installation
+        
+        ### Quick Install (Linux/macOS)
+        ```bash
+        curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | sudo bash
+        ```
+        
+        ### Manual Installation
+        1. Download the appropriate binary for your platform
+        2. Extract and make executable:
+           ```bash
+           tar -xzf ebpf-mcp-server-linux-amd64.tar.gz
+           chmod +x ebpf-mcp-server-linux-amd64
+           sudo mv ebpf-mcp-server-linux-amd64 /usr/local/bin/ebpf-mcp-server
+           ```
+        3. Run the server:
+           ```bash
+           sudo ebpf-mcp-server -t http -debug
+           ```
+        
+        ## 🔧 Claude CLI Integration
+        ```bash
+        # Add to Claude CLI (replace TOKEN with the one shown in server logs)
+        claude mcp add ebpf http://localhost:8080/mcp -t http -H "Authorization: Bearer TOKEN"
+        
+        # Test the integration
+        claude --debug
+        # Then try: "What eBPF capabilities does this system have?"
+        ```
+        
+        ## 🛠️ Available Tools
+        - `attach_program` - Attach eBPF programs to kernel hooks
+        - `info` - Get system eBPF capabilities
+        - `inspect_state` - Examine loaded programs and maps
+        - `load_program` - Load eBPF programs from files or data
+        - `stream_events` - Real-time kernel event streaming
+        - `trace_errors` - Debug eBPF program issues
+        
+        ## 📋 Requirements
+        - Linux kernel 4.18+ with eBPF support
+        - Root privileges for eBPF operations
+        - Optional: BTF support for enhanced debugging
+        
+        ## 🔗 Links
+        - [Documentation](https://github.com/${{ github.repository }}/tree/main/docs)
+        - [Quick Start Guide](https://github.com/${{ github.repository }}/blob/main/docs/TUTORIAL.md)
+        - [Claude CLI Tutorial](https://github.com/${{ github.repository }}/blob/main/docs/CLAUDE_CLI_TUTORIAL.md)
+        
+        ## 📊 Checksums
+        Verify your download with the provided `.sha256` files:
+        ```bash
+        sha256sum -c ebpf-mcp-server-linux-amd64.tar.gz.sha256
+        ```
+        EOF
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: eBPF MCP Server ${{ steps.version.outputs.version }}
+        body_path: release_notes.md
+        files: |
+          binaries/*
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: Build Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Get version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+          ghcr.io/${{ github.repository }}:latest
+        build-args: |
+          VERSION=${{ steps.version.outputs.version }}
+          COMMIT=${{ github.sha }}
+          BUILD_TIME=${{ github.run_id }}
