@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -193,7 +194,9 @@ func convertPropertyToMCPOptions(propName string, propDef map[string]interface{}
 	}
 }
 
-// handleToolCall handles the actual tool execution
+// Replace your existing handleToolCall function with these:
+
+// handleToolCall handles the actual tool execution with streaming support
 func handleToolCall(tool types.Tool, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	log.Printf("[DEBUG] ==> Tool %s called", tool.ID)
 
@@ -221,6 +224,17 @@ func handleToolCall(tool types.Tool, request mcp.CallToolRequest) (*mcp.CallTool
 		log.Printf("[DEBUG] Tool %s arguments are nil", tool.ID)
 	}
 
+	// Check if this is a streaming tool
+	if tool.Stream != nil {
+		return handleStreamingTool(tool, input)
+	}
+
+	// Handle regular (non-streaming) tools
+	return handleRegularTool(tool, input)
+}
+
+// handleRegularTool handles non-streaming tools
+func handleRegularTool(tool types.Tool, input map[string]interface{}) (*mcp.CallToolResult, error) {
 	// Call your existing tool with error recovery
 	var result interface{}
 	var err error
@@ -265,11 +279,106 @@ func handleToolCall(tool types.Tool, request mcp.CallToolRequest) (*mcp.CallTool
 		}
 		return mcp.NewToolResultText(fmt.Sprintf("%v", v)), nil
 	default:
-		// NEW: Handle structs by marshaling to JSON instead of using %v
+		// Handle structs by marshaling to JSON instead of using %v
 		if jsonBytes, err := json.MarshalIndent(v, "", "  "); err == nil {
 			return mcp.NewToolResultText(string(jsonBytes)), nil
 		}
 		// Fallback to string representation only if JSON marshaling fails
 		return mcp.NewToolResultText(fmt.Sprintf("%v", v)), nil
 	}
+}
+
+// handleStreamingTool handles tools that support streaming (like stream_events)
+func handleStreamingTool(tool types.Tool, input map[string]interface{}) (*mcp.CallToolResult, error) {
+	log.Printf("[DEBUG] Handling streaming tool %s", tool.ID)
+
+	// Validate inputs
+	if input == nil {
+		return mcp.NewToolResultError("input cannot be nil"), nil
+	}
+
+	// Create a buffer to collect streaming results
+	var results []interface{}
+	var finalResult interface{}
+	var mu sync.Mutex
+	var streamErr error
+
+	// Create the emit function that collects streaming data
+	emit := func(data interface{}) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		log.Printf("[DEBUG] Stream emit: %+v", data)
+
+		// Check if this is a final result or an event
+		if dataMap, ok := data.(map[string]interface{}); ok {
+			if complete, exists := dataMap["complete"]; exists && complete == true {
+				// This is the final result
+				finalResult = data
+				log.Printf("[DEBUG] Stream completed with final result")
+				return
+			}
+
+			if eventType, exists := dataMap["type"]; exists {
+				if eventType == "event" {
+					// This is an individual event
+					results = append(results, data)
+					return
+				} else if eventType == "status" {
+					// This is a status message
+					log.Printf("[DEBUG] Stream status: %v", dataMap["message"])
+					return
+				}
+			}
+		}
+
+		// Default: treat as event data
+		results = append(results, data)
+	}
+
+	// Call the streaming tool with panic recovery
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[ERROR] Tool %s panicked: %v", tool.ID, r)
+				streamErr = fmt.Errorf("tool panicked: %v", r)
+			}
+		}()
+
+		streamErr = tool.Stream(input, emit)
+	}()
+
+	// Handle streaming errors
+	if streamErr != nil {
+		log.Printf("[ERROR] Streaming tool %s failed: %v", tool.ID, streamErr)
+		return mcp.NewToolResultError(fmt.Sprintf("stream_events failed: %v", streamErr)), nil
+	}
+
+	// Prepare the final response
+	mu.Lock()
+	defer mu.Unlock()
+
+	var response interface{}
+
+	if finalResult != nil {
+		// Use the final result if available
+		response = finalResult
+	} else {
+		// Create a response with collected events
+		response = map[string]interface{}{
+			"success":      true,
+			"tool_version": "1.0.0",
+			"events":       results,
+			"message":      fmt.Sprintf("Collected %d events", len(results)),
+			"complete":     true,
+		}
+	}
+
+	// Convert to JSON and return
+	if jsonBytes, err := json.MarshalIndent(response, "", "  "); err == nil {
+		log.Printf("[DEBUG] Streaming tool %s final response:\n%s", tool.ID, string(jsonBytes))
+		return mcp.NewToolResultText(string(jsonBytes)), nil
+	}
+
+	return mcp.NewToolResultText(fmt.Sprintf("%v", response)), nil
 }

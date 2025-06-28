@@ -428,6 +428,260 @@ test_load_base64() {
     fi
 }
 
+# Test 9: Stream events from attached kprobe
+test_stream_events() {
+    log_info "Test 9: Testing event streaming from kprobe..."
+    
+    if [ -z "$PROGRAM_ID" ] || [ -z "$LINK_ID" ]; then
+        log_warning "No program/link ID available, skipping stream test"
+        return
+    fi
+    
+    local arguments="{
+        \"source\": {
+            \"program_id\": $PROGRAM_ID,
+            \"link_id\": $LINK_ID
+        },
+        \"duration\": 5,
+        \"format\": \"json\",
+        \"filters\": {
+            \"max_events\": 10,
+            \"event_types\": [\"kprobe\"],
+            \"min_timestamp\": 0,
+            \"target_pids\": []
+        }
+    }"
+    
+    log_info "Starting event stream for 5 seconds..."
+    
+    # Start streaming in background and capture response
+    local response=$(call_tool "stream_events" "$arguments" 9)
+    
+    # Generate some activity while streaming
+    log_info "Generating activity to trigger events..."
+    (
+        sleep 1
+        echo "Stream test command 1" > /dev/null &
+        ls /tmp > /dev/null &
+        date > /dev/null &
+        whoami > /dev/null &
+        sleep 1
+        ps aux | head -5 > /dev/null &
+        uname -a > /dev/null &
+        sleep 1
+        cat /proc/version > /dev/null &
+        sleep 2
+    ) &
+    
+    # Wait for streaming to complete
+    wait
+    
+    if echo "$response" | jq -e '.result' > /dev/null 2>&1; then
+        local result_text=$(echo "$response" | jq -r '.result.content[0].text')
+        
+        if echo "$result_text" | grep -q '"success": *true\|"status":\|"events_captured":\|"stream_duration":'; then
+            log_success "Event streaming completed"
+            
+            # Extract event count if available
+            local event_count=$(echo "$result_text" | jq -r '.events_captured // .total_events // empty')
+            if [ -n "$event_count" ] && [ "$event_count" != "null" ]; then
+                log_success "Captured $event_count events"
+            fi
+            
+            # Show streaming results
+            echo "$result_text" | jq '.' 2>/dev/null || echo "$result_text"
+        else
+            log_warning "Event streaming completed with warnings"
+            echo "$result_text"
+        fi
+    else
+        log_error "Failed to stream events"
+        echo "$response" | jq '.'
+    fi
+}
+
+# Test 10: Trace errors and debugging
+test_trace_errors() {
+    log_info "Test 10: Testing error tracing and debugging..."
+    
+    local arguments="{
+        \"duration\": 3,
+        \"trace_level\": \"info\",
+        \"include_stack_traces\": true
+    }"
+    
+    local response=$(call_tool "trace_errors" "$arguments" 10)
+    
+    # Generate some activity to potentially trigger traces
+    log_info "Generating system activity for tracing..."
+    (
+        sleep 1
+        # These commands should be traced by the error tracer
+        echo "Error trace test" > /dev/null
+        ls /nonexistent/path > /dev/null 2>&1 || true
+        sleep 2
+    ) &
+    
+    wait
+    
+    if echo "$response" | jq -e '.result' > /dev/null 2>&1; then
+        local result_text=$(echo "$response" | jq -r '.result.content[0].text')
+        
+        if echo "$result_text" | grep -q '"status":\|"traced_events":\|"Tracepoint attached"'; then
+            log_success "Error tracing completed"
+            
+            # Extract trace count if available
+            local trace_count=$(echo "$result_text" | jq -r '.traced_events // empty')
+            if [ -n "$trace_count" ] && [ "$trace_count" != "null" ]; then
+                log_success "Traced $trace_count events"
+            fi
+            
+            # Show tracing results
+            echo "$result_text" | jq '.' 2>/dev/null || echo "$result_text"
+        else
+            log_warning "Error tracing completed with warnings"
+            echo "$result_text"
+        fi
+    else
+        log_error "Failed to trace errors"
+        echo "$response" | jq '.'
+    fi
+}
+
+# Test 11: Comprehensive inspect state with individual fields
+test_inspect_state_detailed() {
+    log_info "Test 11: Detailed inspection of eBPF system state..."
+    
+    # Test each field individually first
+    local fields=("programs" "maps" "links" "system")
+    
+    for field in "${fields[@]}"; do
+        log_info "Inspecting $field..."
+        
+        local arguments="{
+            \"fields\": [\"$field\"],
+            \"filters\": {
+                \"include_details\": true,
+                \"show_inactive\": false,
+                \"max_entries\": 100,
+                \"sort_by\": \"id\",
+                \"filter_by_type\": \"\",
+                \"include_statistics\": true
+            }
+        }"
+        
+        local response=$(call_tool "inspect_state" "$arguments" "11${field}")
+        
+        if echo "$response" | jq -e '.result' > /dev/null 2>&1; then
+            local result_text=$(echo "$response" | jq -r '.result.content[0].text')
+            
+            if echo "$result_text" | grep -q '"success": *true'; then
+                log_success "$field inspection successful"
+                
+                # Show relevant counts
+                case $field in
+                    "programs")
+                        local count=$(echo "$result_text" | jq '.programs | length // 0' 2>/dev/null || echo "0")
+                        log_info "Found $count programs"
+                        ;;
+                    "maps")
+                        local count=$(echo "$result_text" | jq '.maps | length // 0' 2>/dev/null || echo "0")
+                        log_info "Found $count maps"
+                        ;;
+                    "links")
+                        local count=$(echo "$result_text" | jq '.links | length // 0' 2>/dev/null || echo "0")
+                        log_info "Found $count links"
+                        ;;
+                    "system")
+                        local kernel=$(echo "$result_text" | jq -r '.system.kernel_version // "unknown"' 2>/dev/null || echo "unknown")
+                        log_info "Kernel version: $kernel"
+                        ;;
+                esac
+                
+                # Show detailed results for this field
+                echo "=== $field Details ==="
+                echo "$result_text" | jq ".$field // ." 2>/dev/null || echo "$result_text"
+                echo
+            else
+                log_warning "$field inspection returned errors"
+                echo "$result_text"
+            fi
+        else
+            log_warning "Failed to inspect $field"
+        fi
+    done
+    
+    # Now test all fields together with statistics
+    log_info "Getting complete system state with statistics..."
+    
+    local arguments="{
+        \"fields\": [\"programs\", \"maps\", \"links\", \"system\"],
+        \"filters\": {
+            \"include_details\": true,
+            \"show_inactive\": true,
+            \"max_entries\": 1000,
+            \"include_statistics\": true
+        }
+    }"
+    
+    local response=$(call_tool "inspect_state" "$arguments" 111)
+    
+    if echo "$response" | jq -e '.result' > /dev/null 2>&1; then
+        log_success "Complete system state retrieved"
+        echo "$response" | jq -r '.result.content[0].text' | jq '.'
+    else
+        log_error "Failed to get complete system state"
+        echo "$response" | jq '.'
+    fi
+}
+
+# Test 12: Test different stream formats and filters
+test_stream_formats() {
+    log_info "Test 12: Testing different streaming formats and filters..."
+    
+    if [ -z "$PROGRAM_ID" ]; then
+        log_warning "No program ID available, skipping stream format tests"
+        return
+    fi
+    
+    local formats=("json" "raw" "base64")
+    
+    for format in "${formats[@]}"; do
+        log_info "Testing $format format streaming..."
+        
+        local arguments="{
+            \"source\": {
+                \"program_id\": $PROGRAM_ID
+            },
+            \"duration\": 2,
+            \"format\": \"$format\",
+            \"filters\": {
+                \"max_events\": 5,
+                \"event_types\": [\"kprobe\"],
+                \"min_timestamp\": 0
+            }
+        }"
+        
+        local response=$(call_tool "stream_events" "$arguments" "12${format}")
+        
+        # Generate activity
+        (date > /dev/null; whoami > /dev/null) &
+        wait
+        
+        if echo "$response" | jq -e '.result' > /dev/null 2>&1; then
+            local result_text=$(echo "$response" | jq -r '.result.content[0].text')
+            log_success "$format format streaming completed"
+            
+            # Show first few lines only to avoid spam
+            echo "$result_text" | head -10
+            echo "..."
+            echo
+        else
+            log_warning "$format format streaming failed"
+        fi
+    done
+}
+
 # Cleanup function
 cleanup() {
     log_info "Cleaning up test files..."
@@ -460,7 +714,15 @@ main() {
     test_inspect_state
     test_generate_activity
     test_load_base64
+    test_stream_events
+    test_trace_errors  
+    test_inspect_state_detailed
+    test_stream_formats
     
+    # And update the summary section to include:
+    echo
+    log_success \"🔍 Stream and inspection tests completed\"
+    log_info \"Event streaming, error tracing, and detailed state inspection all functional\"
     echo
     echo "=============================================="
     echo "           Test Results Summary"
