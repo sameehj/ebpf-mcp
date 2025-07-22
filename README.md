@@ -77,6 +77,18 @@ claude --debug
 npx @modelcontextprotocol/inspector http://localhost:8080/mcp
 ```
 
+## 📘 Tutorials
+
+Looking to get started in specific environments or with Cursor IDE?
+
+### 🧰 [VirtualBox Setup Guide](./docs/VIRTUALBOX_SETUP_TUTORIAL.md)
+
+Learn how to configure and run ebpf-mcp inside a VirtualBox VM, with port forwarding, SSH access, and practical tips.
+
+### 🖥️ [Cursor IDE + eBPF-MCP Integration](./docs/CURSOR_IDE_TUTORIAL.md)
+
+Step-by-step guide for running the eBPF MCP server with Cursor IDE for AI-driven observability.
+
 **Example prompts:**
 - `> Get system info and kernel version`
 - `> Load and attach a kprobe program to monitor sys_execve`
