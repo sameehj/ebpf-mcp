@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/sameehj/ebpf-mcp/internal/prompts"
 	"github.com/sameehj/ebpf-mcp/internal/tools"
 )
 
@@ -47,6 +48,10 @@ func main() {
 	// Register all tools
 	log.Printf("[DEBUG] Registering tools...")
 	tools.RegisterAllWithMCP(mcpServer)
+
+	// Register all prompts
+	log.Printf("[DEBUG] Registering prompts...")
+	prompts.RegisterAllWithMCP(mcpServer)
 
 	if transport == "http" {
 		token := os.Getenv("MCP_AUTH_TOKEN")

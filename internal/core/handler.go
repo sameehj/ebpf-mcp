@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/sameehj/ebpf-mcp/internal/prompts"
 	"github.com/sameehj/ebpf-mcp/internal/tools"
 	"github.com/sameehj/ebpf-mcp/pkg/types"
 )
@@ -23,6 +24,9 @@ func HandleMCP(w http.ResponseWriter, r *http.Request) {
 				"tools": map[string]bool{
 					"listChanged": true,
 				},
+				"prompts": map[string]bool{
+					"listChanged": true,
+				},
 			},
 			"serverInfo": map[string]string{
 				"name":    "ebpf-mcp",
@@ -37,6 +41,10 @@ func HandleMCP(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(tools.Call(req))
 	case "tools/execute":
 		json.NewEncoder(w).Encode(tools.Call(req))
+	case "prompts/list":
+		json.NewEncoder(w).Encode(prompts.List(req.ID))
+	case "prompts/get":
+		json.NewEncoder(w).Encode(prompts.Get(req))
 	default:
 		json.NewEncoder(w).Encode(types.NewErrorResponseWithCode(req.ID, -32601, "Method not found"))
 	}
