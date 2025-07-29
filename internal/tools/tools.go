@@ -7,6 +7,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/sameehj/ebpf-mcp/pkg/types"
 )
 
@@ -136,4 +137,74 @@ func Call(req types.RPCRequest) types.RPCResponse {
 		return types.NewErrorResponse(req.ID, fmt.Sprintf("%s failed: %v", toolID, err))
 	}
 	return types.NewSuccessResponse(req.ID, result)
+}
+
+// CallTool finds a registered tool by ID, invokes it with input, and wraps the output in a GetPromptResult.
+func CallTool(toolID string, input map[string]interface{}) (*mcp.GetPromptResult, error) {
+	// Locking mechanism depends on how your toolRegistry is protected
+	mu.RLock()
+	tool, exists := toolRegistry[toolID]
+	mu.RUnlock()
+
+	if !exists {
+		return &mcp.GetPromptResult{
+			Description: "Tool not found",
+			Messages: []mcp.PromptMessage{
+				{
+					Role:    mcp.RoleAssistant,
+					Content: mcp.TextContent{Type: "text", Text: fmt.Sprintf("Tool '%s' not found.", toolID)},
+				},
+			},
+		}, nil
+	}
+
+	if tool.Call == nil {
+		return &mcp.GetPromptResult{
+			Description: "Tool call not implemented",
+			Messages: []mcp.PromptMessage{
+				{
+					Role:    mcp.RoleAssistant,
+					Content: mcp.TextContent{Type: "text", Text: fmt.Sprintf("Tool '%s' has no callable function.", toolID)},
+				},
+			},
+		}, nil
+	}
+
+	// Run the tool
+	result, err := tool.Call(input)
+	if err != nil {
+		return &mcp.GetPromptResult{
+			Description: "Tool execution error",
+			Messages: []mcp.PromptMessage{
+				{
+					Role:    mcp.RoleAssistant,
+					Content: mcp.TextContent{Type: "text", Text: "Error: " + err.Error()},
+				},
+			},
+		}, nil
+	}
+
+	// Try to marshal the output into JSON for display
+	jsonOutput, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return &mcp.GetPromptResult{
+			Description: "Failed to format output",
+			Messages: []mcp.PromptMessage{
+				{
+					Role:    mcp.RoleAssistant,
+					Content: mcp.TextContent{Type: "text", Text: "Failed to serialize tool output."},
+				},
+			},
+		}, nil
+	}
+
+	return &mcp.GetPromptResult{
+		Description: fmt.Sprintf("Output from tool '%s'", toolID),
+		Messages: []mcp.PromptMessage{
+			{
+				Role:    mcp.RoleAssistant,
+				Content: mcp.TextContent{Type: "text", Text: string(jsonOutput)},
+			},
+		},
+	}, nil
 }
